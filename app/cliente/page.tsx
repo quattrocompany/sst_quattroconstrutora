@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import UserMenu from '@/components/UserMenu'
+import Footer from '@/components/Footer'
 
 type Category = 'PASSAPORTE' | 'SUBCONTRATADAS' | 'TREINAMENTOS' | 'OBRAS'
 
@@ -171,7 +172,6 @@ export default function ClienteDashboard() {
 
         setDocuments(formattedDocs)
 
-        // Busca Mídias de Forma Segura
         const { data: mediaData } = await supabase
           .from('training_media')
           .select('*')
@@ -311,6 +311,7 @@ export default function ClienteDashboard() {
             </div>
           </div>
 
+          {/* Título Principal */}
           <div
             className={`absolute z-30 transition-all duration-300 ease-out ${
               isScrolled
@@ -695,7 +696,7 @@ export default function ClienteDashboard() {
         </div>
       </section>
 
-      {/* 4. MODAIS */}
+      {/* 4. MODAL DE MÍDIA */}
       {activeMediaModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-white rounded-3xl max-w-4xl w-full overflow-hidden flex flex-col shadow-2xl">
@@ -738,6 +739,7 @@ export default function ClienteDashboard() {
         </div>
       )}
 
+      {/* 5. MODAL DO PASSAPORTE */}
       {selectedWorker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100">
@@ -819,21 +821,8 @@ export default function ClienteDashboard() {
         </div>
       )}
 
-      {/* 5. RODAPÉ */}
-      <footer className="relative w-full h-32 md:h-40 mt-auto overflow-hidden">
-        <Image
-          src="/img/rodape/bg_rodape.png"
-          alt="Rodapé Quattro Construtora"
-          fill
-          className="object-cover object-center"
-          priority
-        />
-        <div className="relative z-10 w-full h-full flex items-end justify-center pb-4 bg-black/10">
-          <p className="text-[10px] sm:text-[11px] text-gray-300 font-medium tracking-wide text-center px-4">
-            © 2026 Quattro Company Construtora e Incorporadora Ltda. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
+      {/* 6. RODAPÉ REUTILIZÁVEL */}
+      <Footer />
 
     </div>
   )

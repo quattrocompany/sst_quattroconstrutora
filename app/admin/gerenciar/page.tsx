@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import AdminHeader from '@/components/AdminHeader'
-import Image from 'next/image'
+import Footer from '@/components/Footer'
 
 interface DocumentItem {
   id: string
@@ -252,20 +252,7 @@ export default function AdminGerenciarPage() {
         </div>
       </main>
 
-      <footer className="relative w-full h-24 md:h-28 mt-auto overflow-hidden">
-        <Image
-          src="/img/rodape/bg_rodape.png"
-          alt="Rodapé Quattro Construtora"
-          fill
-          className="object-cover object-center"
-          priority
-        />
-        <div className="relative z-10 w-full h-full flex items-end justify-center pb-4 bg-black/10">
-          <p className="text-[10px] sm:text-[11px] text-gray-300 font-medium tracking-wide text-center px-4">
-            © 2026 Quattro Company Construtora e Incorporadora Ltda. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
+      <Footer compact />
     </div>
   )
 }
