@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 function isQuattroAdminEmail(email?: string | null): boolean {
@@ -15,14 +15,15 @@ export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
 
   const [currentUser, setCurrentUser] = useState({
-    name: 'Equipe Quattro SST',
-    email: 'admin.sst@quattroinc.com.br',
+    name: 'Conectando...',
+    email: '',
     company: 'Quattro Construtora',
-    role: 'Gestor Geral de SST',
-    workSite: 'Amazon Fulfillment Center - SP02',
+    role: 'Gestor SST',
+    workSite: '',
   })
 
   const isQuattroUser = isQuattroAdminEmail(currentUser.email)
@@ -31,13 +32,28 @@ export default function UserMenu() {
     async function loadAuthUser() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user && user.email) {
-        const isAdmin = isQuattroAdminEmail(user.email)
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, role, work_site, subcontractors(name)')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        const isAdmin = isQuattroAdminEmail(user.email) || profile?.role === 'ADMIN_QUATTRO'
+
         setCurrentUser({
-          name: user.user_metadata?.full_name || user.email.split('@')[0].toUpperCase(),
+          name: profile?.full_name || user.user_metadata?.full_name || user.email.split('@')[0].toUpperCase(),
           email: user.email,
-          company: isAdmin ? 'Quattro Construtora' : 'Amazon Brasil',
+          company: (profile as any)?.subcontractors?.name || (isAdmin ? 'Quattro Construtora' : 'Cliente Conectado'),
           role: isAdmin ? 'Administrador / SST Interno' : 'Fiscal de Obra / Cliente',
-          workSite: 'Amazon Fulfillment Center - SP02',
+          workSite: profile?.work_site || '',
+        })
+      } else {
+        setCurrentUser({
+          name: 'Equipe Quattro SST',
+          email: 'admin.sst@quattroinc.com.br',
+          company: 'Quattro Construtora',
+          role: 'Gestor Geral de SST',
+          workSite: '',
         })
       }
     }
@@ -54,12 +70,17 @@ export default function UserMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const navLinks = [
-    { href: '/admin/upload', label: 'Upload & Extração com IA', icon: '🤖' },
-    { href: '/admin/gerenciar', label: 'Gerenciar Documentos SST', icon: '📋' },
-    { href: '/admin/midia', label: 'Gestão de Mídias & Treinamentos', icon: '🎬' },
-    { href: '/admin/empresas', label: 'Cadastrar Empresas & Clientes', icon: '🏢' },
-    { href: '/cliente', label: 'Visualizar Portal do Cliente', icon: '📄' },
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setIsOpen(false)
+    router.push('/login')
+  }
+
+  const adminLinks = [
+    { href: '/admin/empresas', label: 'Cadastro de Empresas e Usuários', icon: '🏢' },
+    { href: '/admin/gerenciar', label: 'Gestão de Documentos', icon: '📋' },
+    { href: '/admin/midia', label: 'Mídias e Treinamentos', icon: '🎬' },
+    { href: '/admin/upload', label: 'Upload de Documentos', icon: '📤' },
   ]
 
   return (
@@ -70,9 +91,7 @@ export default function UserMenu() {
       >
         <div
           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase shadow-sm ${
-            isQuattroUser
-              ? 'bg-[#4A4D50] text-white'
-              : 'bg-[#131921] text-amber-400 font-black'
+            isQuattroUser ? 'bg-[#4A4D50] text-white' : 'bg-[#131921] text-amber-400 font-black'
           }`}
         >
           {isQuattroUser ? 'Q' : 'A'}
@@ -96,7 +115,6 @@ export default function UserMenu() {
         <span className="text-[10px] text-gray-400">▼</span>
       </button>
 
-      {/* DROPDOWN DINÂMICO */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3 z-[100] text-left animate-in fade-in duration-150">
           <div className="border-b border-gray-100 pb-3">
@@ -109,21 +127,36 @@ export default function UserMenu() {
             </span>
             <h4 className="text-xs font-bold text-gray-900 uppercase mt-2">{currentUser.company}</h4>
             <p className="text-[11px] text-gray-600">{currentUser.name}</p>
-            <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
+            {currentUser.email && <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>}
           </div>
 
-          <div className="space-y-1 text-[11px] text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-            <p className="text-gray-400 text-[10px] uppercase font-bold">Obra / Unidade:</p>
-            <p className="font-semibold text-gray-800">{currentUser.workSite}</p>
+          {/* EXIBIDO APENAS SE NÃO FOR ADMINISTRADOR DA QUATTRO */}
+          {!isQuattroUser && currentUser.workSite && (
+            <div className="space-y-1 text-[11px] text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+              <p className="text-gray-400 text-[10px] uppercase font-bold">Obra / Unidade:</p>
+              <p className="font-semibold text-gray-800">{currentUser.workSite}</p>
+            </div>
+          )}
+
+          {/* BOTÃO EM DESTAQUE - PORTAL DO CLIENTE */}
+          <div className="pt-1">
+            <Link
+              href="/cliente"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-colors"
+            >
+              <span>📄</span>
+              <span>PORTAL DO CLIENTE</span>
+            </Link>
           </div>
 
           {isQuattroUser ? (
-            <div className="space-y-1.5 pt-1 border-t border-gray-100">
+            <div className="space-y-1.5 pt-2 border-t border-gray-100">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                Menu Administrativo (Quattro)
+                MENU ADMINISTRATIVO (QUATTRO)
               </p>
               <div className="flex flex-col gap-1">
-                {navLinks.map((link) => {
+                {adminLinks.map((link) => {
                   const isActive = pathname === link.href
                   return (
                     <Link
@@ -151,10 +184,7 @@ export default function UserMenu() {
 
           <div className="pt-2 border-t border-gray-100">
             <button
-              onClick={() => {
-                alert('Sessão encerrada com sucesso.')
-                setIsOpen(false)
-              }}
+              onClick={handleLogout}
               className="w-full text-center py-2 text-red-600 hover:bg-red-50 text-[11px] font-bold uppercase rounded-lg transition-colors cursor-pointer"
             >
               Encerrar Sessão

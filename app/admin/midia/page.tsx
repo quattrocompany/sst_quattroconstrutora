@@ -5,12 +5,18 @@ import { createClient } from '@/lib/supabase/client'
 import AdminHeader from '@/components/AdminHeader'
 import Footer from '@/components/Footer'
 
+interface CompanyItem {
+  id: string
+  name: string
+}
+
 interface MediaItem {
   id: string
   title: string
   section: 'TREINAMENTOS' | 'EMERGENCIA'
   media_type: 'IMAGE' | 'VIDEO_FILE' | 'EMBED'
   url: string
+  company_id?: string | null
   created_at: string
 }
 
@@ -34,6 +40,7 @@ function formatEmbedUrl(urlStr: string): string {
 
 export default function AdminMidiaPage() {
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
+  const [companies, setCompanies] = useState<CompanyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -45,6 +52,7 @@ export default function AdminMidiaPage() {
     section: 'TREINAMENTOS' as 'TREINAMENTOS' | 'EMERGENCIA',
     typeMode: 'FILE' as 'FILE' | 'LINK',
     embedUrl: '',
+    company_id: '',
   })
 
   const supabase = createClient()
@@ -52,6 +60,9 @@ export default function AdminMidiaPage() {
   const loadMedia = async () => {
     setLoading(true)
     try {
+      const { data: subs } = await supabase.from('subcontractors').select('id, name').order('name', { ascending: true })
+      if (subs) setCompanies(subs)
+
       const { data, error } = await supabase
         .from('training_media')
         .select('*')
@@ -59,7 +70,7 @@ export default function AdminMidiaPage() {
 
       if (error) {
         if (error.code === '42P01') {
-          throw new Error('A tabela "training_media" ainda não existe no Supabase. Por favor, execute o script SQL disponibilizado.')
+          throw new Error('A tabela "training_media" ainda não existe no Supabase.')
         }
         throw error
       }
@@ -120,7 +131,7 @@ export default function AdminMidiaPage() {
       if (error) throw error
 
       setMessage({ type: 'success', text: 'Mídia cadastrada e publicada no Portal!' })
-      setFormData({ title: '', section: 'TREINAMENTOS', typeMode: 'FILE', embedUrl: '' })
+      setFormData({ title: '', section: 'TREINAMENTOS', typeMode: 'FILE', embedUrl: '', company_id: '' })
       setFile(null)
       loadMedia()
     } catch (err: any) {
@@ -169,7 +180,7 @@ export default function AdminMidiaPage() {
             Adicionar Novo Material (Foto, Vídeo ou Link)
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
                 Título do Treinamento / Campanha *
@@ -182,6 +193,24 @@ export default function AdminMidiaPage() {
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
               />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                Cliente / Obra Vinculada
+              </label>
+              <select
+                value={formData.company_id}
+                onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white uppercase"
+              >
+                <option value="">TODAS AS OBRAS</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

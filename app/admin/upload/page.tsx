@@ -1,9 +1,30 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import AdminHeader from '@/components/AdminHeader'
 import Footer from '@/components/Footer'
+
+export const STANDARD_DOC_OPTIONS = [
+  { value: 'RG_CPF', label: 'RG / CPF' },
+  { value: 'COMPROVANTE_RESIDENCIA', label: 'Comprovante de Residência' },
+  { value: 'CONTRATO_TRABALHO', label: 'Contrato de Trabalho' },
+  { value: 'CTPS', label: 'CTPS / Carteira de Trabalho' },
+  { value: 'ASO', label: 'ASO - Atestado de Saúde Ocupacional' },
+  { value: 'NR01', label: 'NR-01 (Ordem de Serviço)' },
+  { value: 'NR06', label: 'NR-06 (Ficha de EPI)' },
+  { value: 'NR10', label: 'NR-10 (Segurança em Eletricidade)' },
+  { value: 'NR11', label: 'NR-11 (Movimentação de Cargas)' },
+  { value: 'NR12', label: 'NR-12 (Máquinas e Equipamentos)' },
+  { value: 'NR18', label: 'NR-18 (Construção Civil)' },
+  { value: 'NR35', label: 'NR-35 (Trabalho em Altura)' },
+  { value: 'OUTROS', label: 'Outros Documentos Técnicos' },
+]
+
+interface CompanyItem {
+  id: string
+  name: string
+}
 
 interface DocumentFormData {
   title: string
@@ -53,11 +74,20 @@ function generateStandardFileName(title: string, workerName: string, dateStr?: s
 
 export default function AdminUploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([])
+  const [companies, setCompanies] = useState<CompanyItem[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [globalMessage, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const supabase = createClient()
+
+  useEffect(() => {
+    async function loadCompanies() {
+      const { data } = await supabase.from('subcontractors').select('id, name').order('name', { ascending: true })
+      if (data) setCompanies(data)
+    }
+    loadCompanies()
+  }, [])
 
   const analyzeSingleFile = async (item: QueueItem) => {
     const payload = new FormData()
@@ -124,7 +154,7 @@ export default function AdminUploadPage() {
       status: 'analyzing',
       formData: {
         title: f.name.replace('.pdf', '').toUpperCase(),
-        document_type: '',
+        document_type: 'ASO',
         category: 'PASSAPORTE',
         worker_name: '',
         worker_cpf: '',
@@ -201,7 +231,7 @@ export default function AdminUploadPage() {
         } else {
           const { data: newSub, error: subError } = await supabase
             .from('subcontractors')
-            .insert({ name: item.formData.subcontractor_name })
+            .insert({ name: item.formData.subcontractor_name.toUpperCase() })
             .select('id')
             .single()
 
@@ -220,10 +250,6 @@ export default function AdminUploadPage() {
 
         if (existingWorker) {
           workerId = existingWorker.id
-          await supabase
-            .from('workers')
-            .update({ status: item.formData.status as any })
-            .eq('id', workerId)
         } else {
           const { data: newWorker, error: workerError } = await supabase
             .from('workers')
@@ -232,6 +258,7 @@ export default function AdminUploadPage() {
               cpf: item.formData.worker_cpf || '00000000000',
               subcontractor_id: subcontractorId,
               status: item.formData.status as any,
+              exempt_docs: [],
             })
             .select('id')
             .single()
@@ -294,7 +321,7 @@ export default function AdminUploadPage() {
     if (successCount > 0) {
       setMessage({
         type: 'success',
-        text: `Sucesso! ${successCount} documento(s) cadastrado(s) e gravado(s) no banco!`,
+        text: `Sucesso! ${successCount} documento(s) cadastrado(s) e vinculado(s) ao colaborador!`,
       })
     }
   }
@@ -309,10 +336,10 @@ export default function AdminUploadPage() {
       <main className="w-full max-w-[1440px] mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-8 flex-1">
         <div>
           <h2 className="text-lg font-bold uppercase text-black tracking-wide">
-            Upload & Leitura Automática de Documentos SST em Lote
+            Upload & Extração Automática de Documentos Regulatórios
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Arraste múltiplos PDFs de uma só vez. A Inteligência Artificial lerá cada documento e preencherá os cadastros.
+            Selecione múltiplos PDFs (ASOs, NRs, RG/CPF, Contratos, etc.). O sistema preencherá os dados e vinculará ao checklist de homologação.
           </p>
         </div>
 
@@ -462,7 +489,7 @@ export default function AdminUploadPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Título
+                          Título do Documento
                         </label>
                         <input
                           type="text"
@@ -472,19 +499,21 @@ export default function AdminUploadPage() {
                         />
                       </div>
 
+                      {/* DROPDOWN DOS 12 DOCUMENTOS PADRONIZADOS */}
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Categoria
+                          Tipo de Documento Regulatório *
                         </label>
                         <select
-                          value={item.formData.category}
-                          onChange={(e) => handleFieldChange(item.id, 'category', e.target.value)}
+                          value={item.formData.document_type}
+                          onChange={(e) => handleFieldChange(item.id, 'document_type', e.target.value)}
                           className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         >
-                          <option value="PASSAPORTE">PASSAPORTE DE SEGURANÇA</option>
-                          <option value="SUBCONTRATADAS">SUBCONTRATADAS</option>
-                          <option value="TREINAMENTOS_CAMPANHAS">TREINAMENTOS E CAMPANHAS</option>
-                          <option value="OBRAS">OBRAS</option>
+                          {STANDARD_DOC_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
@@ -496,7 +525,7 @@ export default function AdminUploadPage() {
                           type="text"
                           value={item.formData.worker_name}
                           onChange={(e) => handleFieldChange(item.id, 'worker_name', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
                         />
                       </div>
 
@@ -514,28 +543,34 @@ export default function AdminUploadPage() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Subcontratada
+                          Empresa / Obra Pertencente *
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={item.formData.subcontractor_name}
                           onChange={(e) => handleFieldChange(item.id, 'subcontractor_name', e.target.value)}
                           className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
-                        />
+                        >
+                          <option value="">Selecione a Empresa...</option>
+                          {companies.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Aptidão SST
+                          Categoria no Portal
                         </label>
                         <select
-                          value={item.formData.status}
-                          onChange={(e) => handleFieldChange(item.id, 'status', e.target.value)}
+                          value={item.formData.category}
+                          onChange={(e) => handleFieldChange(item.id, 'category', e.target.value)}
                           className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         >
-                          <option value="APTO">APTO</option>
-                          <option value="PENDENTE">PENDENTE</option>
-                          <option value="INAPTO">INAPTO</option>
+                          <option value="PASSAPORTE">PASSAPORTE DE SEGURANÇA</option>
+                          <option value="SUBCONTRATADAS">SUBCONTRATADAS</option>
+                          <option value="OBRAS">OBRAS</option>
                         </select>
                       </div>
 
