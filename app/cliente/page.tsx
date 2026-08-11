@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import UserMenu from '@/components/UserMenu'
+import ClientHeader from '@/components/ClientHeader'
 import Footer from '@/components/Footer'
 
 type Category = 'PASSAPORTE' | 'SUBCONTRATADAS' | 'TREINAMENTOS' | 'OBRAS'
@@ -32,6 +32,7 @@ interface DocumentItem {
   worker_cpf: string
   worker_status: 'APTO' | 'PENDENTE' | 'INAPTO'
   company_name: string
+  created_at?: string
 }
 
 interface TrainingMediaItem {
@@ -57,10 +58,29 @@ function isQuattroAdminEmail(email?: string | null): boolean {
   return domain === 'quattroinc.com.br' || domain === 'quattroconstrutora.com.br'
 }
 
+function getExpiryStatus(rawDate: string | null) {
+  if (!rawDate) return { label: 'Válido', color: 'text-gray-600 bg-gray-100' }
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const exp = new Date(rawDate + 'T12:00:00')
+  const diffTime = exp.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) {
+    return { label: 'Vencido', color: 'text-red-700 bg-red-100 border border-red-200' }
+  }
+  if (diffDays <= 30) {
+    return { label: `Vence em ${diffDays}d`, color: 'text-amber-700 bg-amber-100 border border-amber-200' }
+  }
+  return { label: 'Em dia', color: 'text-emerald-700 bg-emerald-100 border border-emerald-200' }
+}
+
 export default function ClienteDashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('SUBCONTRATADAS')
   const [selectedSubcontractor, setSelectedSubcontractor] = useState<string>('TODAS')
   const [selectedObraSubCategory, setSelectedObraSubCategory] = useState<ObraSubCategory>('TODOS')
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string>('LATEST')
   const [searchQuery, setSearchQuery] = useState('')
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [trainingMedia, setTrainingMedia] = useState<TrainingMediaItem[]>([])
@@ -167,6 +187,7 @@ export default function ClienteDashboard() {
             worker_cpf: worker?.cpf || 'Não cadastrado',
             worker_status: (worker?.status as any) || 'APTO',
             company_name: subcontractor?.name || 'Quattro Construtora',
+            created_at: item.created_at,
           }
         })
 
@@ -197,9 +218,15 @@ export default function ClienteDashboard() {
     }
   }
 
-  const handleOpenPassport = (workerId: string | null, workerName: string, company: string, status: any, cpf: string) => {
-    const workerDocs = documents.filter((d) => 
-      (workerId && d.worker_id === workerId) || (!workerId && d.worker_name === workerName)
+  const handleOpenPassport = (
+    workerId: string | null,
+    workerName: string,
+    company: string,
+    status: any,
+    cpf: string
+  ) => {
+    const workerDocs = documents.filter(
+      (d) => (workerId && d.worker_id === workerId) || (!workerId && d.worker_name === workerName)
     )
 
     setSelectedWorker({
@@ -212,23 +239,14 @@ export default function ClienteDashboard() {
     })
   }
 
-  const getExpiryStatus = (rawDate: string | null) => {
-    if (!rawDate) return { label: 'Válido', color: 'text-gray-600 bg-gray-100' }
-    
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const exp = new Date(rawDate + 'T12:00:00')
-    const diffTime = exp.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return { label: 'Vencido', color: 'text-red-700 bg-red-100 border border-red-200' }
-    }
-    if (diffDays <= 30) {
-      return { label: `Vence em ${diffDays}d`, color: 'text-amber-700 bg-amber-100 border border-amber-200' }
-    }
-    return { label: 'Em dia', color: 'text-emerald-700 bg-emerald-100 border border-emerald-200' }
-  }
+  // Tipo estrito string[] para evitar passar null para o value do <option>
+  const availableDates: string[] = Array.from(
+    new Set(
+      documents
+        .map((d) => d.issue_date || d.expiry_date)
+        .filter((d): d is string => Boolean(d))
+    )
+  ).sort().reverse()
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesCategory =
@@ -243,101 +261,47 @@ export default function ClienteDashboard() {
       doc.worker_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.title.toLowerCase().includes(searchQuery.toLowerCase())
 
-    return matchesCategory && matchesSub && matchesSearch
+    const matchesDate =
+      selectedDateFilter === 'LATEST' ||
+      selectedDateFilter === 'ALL' ||
+      doc.issue_date === selectedDateFilter ||
+      doc.expiry_date === selectedDateFilter
+
+    return matchesCategory && matchesSub && matchesSearch && matchesDate
+  })
+
+  const groupedMap = new Map<string, DocumentItem[]>()
+
+  filteredDocuments.forEach((doc) => {
+    const key = `${doc.worker_id || doc.worker_name}_${doc.company_name}_${doc.title.trim().toUpperCase()}`
+    if (!groupedMap.has(key)) {
+      groupedMap.set(key, [])
+    }
+    groupedMap.get(key)!.push(doc)
+  })
+
+  const finalDisplayDocs: DocumentItem[] = []
+
+  groupedMap.forEach((docs) => {
+    const sorted = [...docs].sort((a, b) => {
+      const dateA = a.issue_date || a.raw_expiry_date || a.created_at || a.id
+      const dateB = b.issue_date || b.raw_expiry_date || b.created_at || b.id
+      return dateB.localeCompare(dateA)
+    })
+
+    if (selectedDateFilter === 'ALL') {
+      finalDisplayDocs.push(...sorted)
+    } else {
+      finalDisplayDocs.push(sorted[0])
+    }
   })
 
   return (
     <div className="min-h-screen bg-white text-[#2C2C2C] flex flex-col font-sans select-none w-full">
-      
-      {/* 1. TESTEIRA FIXA COM CO-BRANDING */}
-      <header
-        className={`fixed top-0 left-0 right-0 z-40 w-full bg-gray-100 shadow-md transition-all duration-300 ease-out ${
-          isScrolled ? 'h-20 sm:h-22' : 'h-48 sm:h-52'
-        }`}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <Image
-            src="/img/cliente/bg_testeira.png"
-            alt="Testeira Quattro Construtora"
-            fill
-            className="object-cover object-right"
-            priority
-          />
-        </div>
-
-        <div className="relative w-full max-w-[1440px] mx-auto h-full px-4 sm:px-8 md:px-12 flex items-center justify-between">
-          
-          {/* LOGOTIPOS INTEGRADOS (QUATTRO | CLIENTE/AMAZON) */}
-          <div
-            className={`absolute z-50 flex items-center gap-3.5 transition-all duration-300 ease-out ${
-              isScrolled
-                ? '-top-3 sm:-top-4 left-4 sm:left-8 md:left-12'
-                : '-top-6 sm:-top-7 md:-top-8 left-4 sm:left-8 md:left-12'
-            }`}
-          >
-            <div
-              className={
-                isScrolled
-                  ? 'relative w-20 h-24 sm:w-22 sm:h-28'
-                  : 'relative w-28 h-36 sm:w-32 sm:h-40 md:w-36 md:h-44'
-              }
-            >
-              <Image
-                src="/img/cliente/logo_construtora.png"
-                alt="Quattro Construtora"
-                fill
-                className="object-contain object-top drop-shadow-md"
-                priority
-              />
-            </div>
-
-            <div className="h-8 sm:h-10 w-[1.5px] bg-gray-400/50" />
-
-            <div className="flex flex-col justify-center">
-              {clientLogoUrl ? (
-                <div className="relative w-20 sm:w-28 h-8 sm:h-10">
-                  <Image src={clientLogoUrl} alt="Cliente" fill className="object-contain object-left" />
-                </div>
-              ) : (
-                <>
-                  <span className="text-[14px] sm:text-base font-black tracking-widest text-[#232F3E] uppercase font-sans">
-                    amazon
-                  </span>
-                  <span className="text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider">
-                    BRASIL
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Título Principal */}
-          <div
-            className={`absolute z-30 transition-all duration-300 ease-out ${
-              isScrolled
-                ? 'left-52 sm:left-60 md:left-64 top-1/2 -translate-y-1/2'
-                : 'left-4 sm:left-8 md:left-12 bottom-3 sm:bottom-3.5 translate-y-0'
-            }`}
-          >
-            <h1
-              className={`text-white md:text-black font-normal tracking-wide uppercase leading-snug drop-shadow-sm md:drop-shadow-none transition-all duration-300 ${
-                isScrolled ? 'text-[11px] sm:text-xs md:text-sm' : 'text-xs sm:text-sm md:text-base'
-              }`}
-            >
-              PORTAL DE <span className="font-bold">SEGURANÇA</span><br />
-              DO TRABALHO E MEIO AMBIENTE
-            </h1>
-          </div>
-
-          <div className="absolute right-4 sm:right-8 md:right-12 z-[100]">
-            <UserMenu />
-          </div>
-        </div>
-      </header>
+      <ClientHeader isScrolled={isScrolled} clientLogoUrl={clientLogoUrl} />
 
       <div className="w-full h-48 sm:h-52 flex-shrink-0" />
 
-      {/* 2. CONTEÚDO INSTITUCIONAL */}
       <section className="w-full bg-white pt-10 pb-8 border-b border-gray-100 relative z-10">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-8 md:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
@@ -353,10 +317,10 @@ export default function ClienteDashboard() {
 
             <div className="lg:col-span-8 space-y-3 text-xs sm:text-sm text-gray-600 leading-relaxed text-justify">
               <p>
-                O <strong className="font-bold text-gray-900">Portal de Segurança e Saúde do Trabalho (SST) da Quattro Company - Projeto Amazon</strong> foi criado para centralizar, padronizar e facilitar o acesso a informações e documentos cruciais para a prevenção de acidentes nas obras. A ferramenta atende às equipes de segurança, gestores e empresas subcontratadas, fortalecendo os controles de segurança de campo.
+                O <strong className="font-bold text-gray-900">Portal de Segurança e Saúde do Trabalho (SST) da Quattro Company - Projeto Amazon</strong> foi criado para centralizar, padronizar e facilitar o acesso a informações e documentos cruciais para a prevenção de acidentes nas obras.
               </p>
               <p>
-                Entre suas principais funcionalidades, a plataforma disponibiliza o Passaporte de Segurança para controle de treinamentos e habilitações dos colaboradores, a gestão de documentos de empresas parceiras e um acervo para materiais educativos, fotos de treinamentos e campanhas de conscientização.
+                Entre suas principais funcionalidades, a plataforma disponibiliza o Passaporte de Segurança para controle de treinamentos e habilitações dos colaboradores, a gestão de documentos de empresas parceiras e um acervo para materiais educativos.
               </p>
             </div>
           </div>
@@ -384,7 +348,6 @@ export default function ClienteDashboard() {
         </div>
       </section>
 
-      {/* 3. CONTEÚDO DINÂMICO CONFORME A CATEGORIA */}
       <section className="w-full bg-white flex-1 relative z-10">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-10">
           
@@ -407,14 +370,32 @@ export default function ClienteDashboard() {
                   ))}
                 </div>
 
-                <div className="w-full md:w-80">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="PESQUISAR COLABORADOR OU TÍTULO..."
-                    className="w-full px-4 py-2 bg-[#F2F2F2] border border-gray-300 text-gray-800 text-xs rounded-lg focus:outline-none focus:bg-white uppercase font-medium placeholder-gray-500"
-                  />
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={selectedDateFilter}
+                      onChange={(e) => setSelectedDateFilter(e.target.value)}
+                      className="w-full sm:w-auto px-3.5 py-2 bg-[#F2F2F2] border border-gray-300 text-gray-800 text-xs font-bold rounded-lg focus:outline-none focus:bg-white uppercase cursor-pointer"
+                    >
+                      <option value="LATEST">⭐ EMISSÃO: MAIS RECENTE</option>
+                      <option value="ALL">📅 EXIBIR TODA A HISTÓRIA</option>
+                      {availableDates.map((d) => (
+                        <option key={d} value={d}>
+                          📅 FILTRAR DATA: {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="w-full sm:w-72">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="PESQUISAR COLABORADOR OU TÍTULO..."
+                      className="w-full px-4 py-2 bg-[#F2F2F2] border border-gray-300 text-gray-800 text-xs rounded-lg focus:outline-none focus:bg-white uppercase font-medium placeholder-gray-500"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -424,15 +405,15 @@ export default function ClienteDashboard() {
                 </div>
               )}
 
-              {!loading && filteredDocuments.length === 0 && (
+              {!loading && finalDisplayDocs.length === 0 && (
                 <div className="text-center py-12 text-xs font-medium text-gray-500 border border-dashed border-gray-200 rounded-2xl p-8">
                   Nenhum documento encontrado para os filtros selecionados.
                 </div>
               )}
 
-              {!loading && filteredDocuments.length > 0 && (
+              {!loading && finalDisplayDocs.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                  {filteredDocuments.map((doc) => {
+                  {finalDisplayDocs.map((doc) => {
                     const expiryInfo = getExpiryStatus(doc.raw_expiry_date)
 
                     return (
@@ -462,7 +443,15 @@ export default function ClienteDashboard() {
                           </h3>
                           
                           <button
-                            onClick={() => handleOpenPassport(doc.worker_id, doc.worker_name, doc.company_name, doc.worker_status, doc.worker_cpf)}
+                            onClick={() =>
+                              handleOpenPassport(
+                                doc.worker_id,
+                                doc.worker_name,
+                                doc.company_name,
+                                doc.worker_status,
+                                doc.worker_cpf
+                              )
+                            }
                             className="text-left group text-xs text-gray-600 font-medium mb-3 block cursor-pointer"
                           >
                             Colaborador:{' '}
@@ -491,7 +480,15 @@ export default function ClienteDashboard() {
                           </button>
 
                           <button
-                            onClick={() => handleOpenPassport(doc.worker_id, doc.worker_name, doc.company_name, doc.worker_status, doc.worker_cpf)}
+                            onClick={() =>
+                              handleOpenPassport(
+                                doc.worker_id,
+                                doc.worker_name,
+                                doc.company_name,
+                                doc.worker_status,
+                                doc.worker_cpf
+                              )
+                            }
                             className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold tracking-wider uppercase rounded-xl transition-colors cursor-pointer"
                           >
                             Ver Passaporte de SST
@@ -696,7 +693,7 @@ export default function ClienteDashboard() {
         </div>
       </section>
 
-      {/* 4. MODAL DE MÍDIA */}
+      {/* 4. MODAIS */}
       {activeMediaModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-white rounded-3xl max-w-4xl w-full overflow-hidden flex flex-col shadow-2xl">
@@ -739,7 +736,6 @@ export default function ClienteDashboard() {
         </div>
       )}
 
-      {/* 5. MODAL DO PASSAPORTE */}
       {selectedWorker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100">
@@ -767,7 +763,7 @@ export default function ClienteDashboard() {
 
                 <button
                   onClick={() => setSelectedWorker(null)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-sm cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center font-bold text-sm cursor-pointer"
                 >
                   ✕
                 </button>
@@ -821,7 +817,6 @@ export default function ClienteDashboard() {
         </div>
       )}
 
-      {/* 6. RODAPÉ REUTILIZÁVEL */}
       <Footer />
 
     </div>

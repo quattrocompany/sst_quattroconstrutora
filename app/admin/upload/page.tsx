@@ -59,7 +59,6 @@ export default function AdminUploadPage() {
 
   const supabase = createClient()
 
-  // Analisa individualmente cada arquivo com a IA
   const analyzeSingleFile = async (item: QueueItem) => {
     const payload = new FormData()
     payload.append('file', item.file)
@@ -107,7 +106,6 @@ export default function AdminUploadPage() {
     }
   }
 
-  // Processa a inclusão de múltiplos arquivos (Input ou Drag & Drop)
   const handleAddFiles = (files: FileList | File[]) => {
     const pdfFiles = Array.from(files).filter(
       (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
@@ -138,12 +136,9 @@ export default function AdminUploadPage() {
     }))
 
     setQueue((prev) => [...newItems, ...prev])
-
-    // Dispara a leitura por IA para cada arquivo
     newItems.forEach((item) => analyzeSingleFile(item))
   }
 
-  // Handlers para Drag & Drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -162,7 +157,6 @@ export default function AdminUploadPage() {
     }
   }
 
-  // Atualização dos campos editáveis no card
   const handleFieldChange = (id: string, field: keyof DocumentFormData, value: string) => {
     setQueue((prev) =>
       prev.map((item) =>
@@ -173,12 +167,10 @@ export default function AdminUploadPage() {
     )
   }
 
-  // Remoção de um item da fila
   const handleRemoveItem = (id: string) => {
     setQueue((prev) => prev.filter((item) => item.id !== id))
   }
 
-  // Função para salvar um único item no Supabase
   const saveItemToDatabase = async (item: QueueItem): Promise<boolean> => {
     try {
       const filePath = generateStandardFileName(
@@ -187,7 +179,6 @@ export default function AdminUploadPage() {
         item.formData.expiry_date || item.formData.issue_date
       )
 
-      // Upload no Storage
       const { error: storageError } = await supabase.storage
         .from('sst-documents')
         .upload(filePath, item.file, {
@@ -197,7 +188,6 @@ export default function AdminUploadPage() {
 
       if (storageError) throw new Error(`Storage: ${storageError.message}`)
 
-      // Vinculação de Subcontratada
       let subcontractorId: string | null = null
       if (item.formData.subcontractor_name) {
         const { data: existingSub } = await supabase
@@ -220,7 +210,6 @@ export default function AdminUploadPage() {
         }
       }
 
-      // Vinculação de Colaborador
       let workerId: string | null = null
       if (item.formData.worker_name && subcontractorId) {
         const { data: existingWorker } = await supabase
@@ -252,7 +241,6 @@ export default function AdminUploadPage() {
         }
       }
 
-      // Registro do Documento
       const { error: docError } = await supabase.from('documents').insert({
         title: item.formData.title,
         document_type: item.formData.document_type || 'OUTROS',
@@ -273,14 +261,12 @@ export default function AdminUploadPage() {
     }
   }
 
-  // Gravação em lote de todos os itens prontos
   const handleSaveAll = async () => {
     const readyItems = queue.filter((q) => q.status === 'ready')
     if (readyItems.length === 0) return
 
     setMessage(null)
 
-    // Atualiza status visual para "saving"
     setQueue((prev) =>
       prev.map((q) => (q.status === 'ready' ? { ...q, status: 'saving' } : q))
     )
@@ -342,7 +328,6 @@ export default function AdminUploadPage() {
           </div>
         )}
 
-        {/* ÁREA DE DRAG & DROP MULTIPLO */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -372,13 +357,12 @@ export default function AdminUploadPage() {
                 ARRASTE E SOLTE OS PDFs AQUI OU CLIQUE PARA SELECIONAR
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Suporta ASOs, Treinamentos NRs, RGs, Fichas de EPI (Selecione quantos PDFs desejar)
+                Suporta ASOs, Treinamentos NRs, RGs, Fichas de EPI (Selecione múltiplos PDFs)
               </p>
             </div>
           </div>
         </div>
 
-        {/* BARRA DE AÇÃO EM LOTE */}
         {queue.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
             <div className="text-xs font-semibold text-gray-600 space-x-3">
@@ -401,7 +385,6 @@ export default function AdminUploadPage() {
           </div>
         )}
 
-        {/* CARDS DA FILA DE PROCESSAMENTO */}
         {queue.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
@@ -475,7 +458,6 @@ export default function AdminUploadPage() {
                     <p className="text-xs font-bold text-red-600 mb-3">{item.errorMessage}</p>
                   )}
 
-                  {/* FORMULÁRIO DE CONFERÊNCIA POR ARQUIVO */}
                   {item.status !== 'analyzing' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                       <div>
@@ -486,7 +468,7 @@ export default function AdminUploadPage() {
                           type="text"
                           value={item.formData.title}
                           onChange={(e) => handleFieldChange(item.id, 'title', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white uppercase"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
                         />
                       </div>
 
@@ -497,7 +479,7 @@ export default function AdminUploadPage() {
                         <select
                           value={item.formData.category}
                           onChange={(e) => handleFieldChange(item.id, 'category', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         >
                           <option value="PASSAPORTE">PASSAPORTE DE SEGURANÇA</option>
                           <option value="SUBCONTRATADAS">SUBCONTRATADAS</option>
@@ -514,7 +496,7 @@ export default function AdminUploadPage() {
                           type="text"
                           value={item.formData.worker_name}
                           onChange={(e) => handleFieldChange(item.id, 'worker_name', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         />
                       </div>
 
@@ -526,7 +508,7 @@ export default function AdminUploadPage() {
                           type="text"
                           value={item.formData.worker_cpf}
                           onChange={(e) => handleFieldChange(item.id, 'worker_cpf', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         />
                       </div>
 
@@ -538,7 +520,7 @@ export default function AdminUploadPage() {
                           type="text"
                           value={item.formData.subcontractor_name}
                           onChange={(e) => handleFieldChange(item.id, 'subcontractor_name', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white uppercase"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
                         />
                       </div>
 
@@ -565,7 +547,7 @@ export default function AdminUploadPage() {
                           type="date"
                           value={item.formData.issue_date}
                           onChange={(e) => handleFieldChange(item.id, 'issue_date', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         />
                       </div>
 
@@ -577,7 +559,7 @@ export default function AdminUploadPage() {
                           type="date"
                           value={item.formData.expiry_date}
                           onChange={(e) => handleFieldChange(item.id, 'expiry_date', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-medium focus:outline-none focus:bg-white"
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         />
                       </div>
                     </div>

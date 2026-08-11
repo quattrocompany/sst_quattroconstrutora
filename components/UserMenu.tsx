@@ -96,6 +96,7 @@ export default function UserMenu() {
         <span className="text-[10px] text-gray-400">▼</span>
       </button>
 
+      {/* DROPDOWN DINÂMICO */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 space-y-3 z-[100] text-left animate-in fade-in duration-150">
           <div className="border-b border-gray-100 pb-3">
