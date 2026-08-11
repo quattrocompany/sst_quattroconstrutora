@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import ClientHeader from '@/components/ClientHeader'
 import Footer from '@/components/Footer'
+import ModalPassaporte from '@/components/ModalPassaporte'
 
 const STANDARD_DOCS = [
   { id: 'RG_CPF', label: 'RG / CPF' },
@@ -87,6 +88,7 @@ function isQuattroAdminEmail(email?: string | null): boolean {
 }
 
 export default function ClienteDashboard() {
+  const [selectedWorkerForPassport, setSelectedWorkerForPassport] = useState<any>(null)
   const [activeCategory, setActiveCategory] = useState<Category>('SUBCONTRATADAS')
   const [selectedSubcontractor, setSelectedSubcontractor] = useState<string>('TODAS')
   const [selectedObraSubCategory, setSelectedObraSubCategory] = useState<ObraSubCategory>('Boas Práticas')
@@ -298,7 +300,7 @@ export default function ClienteDashboard() {
     }
   }
 
-  const handleOpenPassport = (workerId: string | null, workerName: string, company: string) => {
+  const buildWorkerPassportData = (workerId: string | null, workerName: string, company: string): WorkerPassport => {
     const workerObj = workersList.find(
       (w) => (workerId && w.id === workerId) ||
              w.full_name.trim().toUpperCase() === workerName.trim().toUpperCase()
@@ -326,7 +328,7 @@ export default function ClienteDashboard() {
 
     const realStatus = calculateRealAptitude(workerId, workerName, documents, workersList)
 
-    setSelectedWorker({
+    return {
       id: workerId || workerName,
       name: workerObj?.full_name || workerName,
       cpf: workerObj?.cpf || 'Não informado',
@@ -335,7 +337,15 @@ export default function ClienteDashboard() {
       job_role: workerObj?.job_role || 'Operacional',
       exempt_docs: workerObj?.exempt_docs || [],
       documents: Array.from(docMap.values()),
-    })
+    }
+  }
+
+  const handleOpenPassport = (workerId: string | null, workerName: string, company: string) => {
+    setSelectedWorker(buildWorkerPassportData(workerId, workerName, company))
+  }
+
+  const handleOpenPassportForPrint = (workerId: string | null, workerName: string, company: string) => {
+    setSelectedWorkerForPassport(buildWorkerPassportData(workerId, workerName, company))
   }
 
   const workerCardMap = new Map<string, WorkerCardItem>()
@@ -530,7 +540,7 @@ export default function ClienteDashboard() {
                     >
                       <div>
                         <div className="flex items-center justify-between mb-4">
-                          <span className="bg-[#EDEDED] text-gray-800 text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-md uppercase">
+                          <span className="bg-[#EDEDED] text-gray-800 text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-md uppercase truncate max-w-[130px]">
                             {worker.company_name}
                           </span>
                           
@@ -560,12 +570,20 @@ export default function ClienteDashboard() {
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => handleOpenPassport(worker.id, worker.name, worker.company_name)}
-                        className="w-full py-2.5 bg-[#4A4D50] hover:bg-black text-white text-xs font-bold tracking-wider uppercase rounded-xl transition-colors cursor-pointer"
-                      >
-                        Ver Passaporte de SST
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleOpenPassport(worker.id, worker.name, worker.company_name)}
+                          className="py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-bold tracking-wider uppercase rounded-xl transition-colors cursor-pointer text-center"
+                        >
+                          Ver Status
+                        </button>
+                        <button
+                          onClick={() => handleOpenPassportForPrint(worker.id, worker.name, worker.company_name)}
+                          className="py-2.5 bg-[#4A4D50] hover:bg-black text-white text-[11px] font-bold tracking-wider uppercase rounded-xl transition-colors cursor-pointer text-center flex items-center justify-center gap-1"
+                        >
+                          🖨️ Cartão
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -694,7 +712,6 @@ export default function ClienteDashboard() {
             </div>
           )}
 
-          {/* ABA 4: OBRAS (SUBFILTROS EM UMA ÚNICA LINHA REPETINDO A LARGURA MÁXIMA DA PÁGINA) */}
           {activeCategory === 'OBRAS' && (
             <div className="space-y-8">
               <div className="text-center space-y-2">
@@ -706,7 +723,6 @@ export default function ClienteDashboard() {
                 </p>
               </div>
 
-              {/* CONTAINER EXPANDIDO PARA MAX-W-7XL COM WHITESPACE-NOWRAP PARA TODOS OS 6 BOTÕES FICAREM EM UMA LINHA */}
               <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-7xl mx-auto px-2">
                 {obraSubCategories.map((subCat) => (
                   <button
@@ -762,7 +778,7 @@ export default function ClienteDashboard() {
         </div>
       </section>
 
-      {/* MODAL DE PASSAPORTE SST */}
+      {/* MODAL DE DETALHES DE DOCUMENTOS DO COLABORADOR */}
       {selectedWorker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100">
@@ -854,7 +870,17 @@ export default function ClienteDashboard() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  setSelectedWorkerForPassport(selectedWorker)
+                  setSelectedWorker(null)
+                }}
+                className="px-5 py-2 bg-[#4A4D50] hover:bg-black text-white text-xs font-bold uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                🖨️ Imprimir Cartão Passaporte
+              </button>
+
               <button
                 onClick={() => setSelectedWorker(null)}
                 className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-bold uppercase rounded-xl transition-colors cursor-pointer"
@@ -864,6 +890,14 @@ export default function ClienteDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE IMPRESSÃO DO CARTÃO PASSAPORTE SST */}
+      {selectedWorkerForPassport && (
+        <ModalPassaporte
+          worker={selectedWorkerForPassport}
+          onClose={() => setSelectedWorkerForPassport(null)}
+        />
       )}
 
       <Footer />
