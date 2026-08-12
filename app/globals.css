@@ -25,26 +25,80 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Regras de impressão para o Passaporte SST */
+/* ==========================================================================
+   REGRAS UNIFICADAS DE IMPRESSÃO (PASSAPORTE SST E APR DE OBRA)
+   ========================================================================== */
 @media print {
+  /* 1. Oculta navegação do site e botões interativos */
+  header,
+  footer,
+  nav,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 2. Força o navegador a imprimir cores de fundo e gráficos sem desbotar */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 3. Oculta a interface da tela para isolar o documento impresso */
   body * {
     visibility: hidden !important;
   }
-  #printable-passport, #printable-passport * {
+
+  /* 4. Libera visibilidade para o Passaporte SST e para a APR */
+  #printable-passport,
+  #printable-passport *,
+  #printable-apr,
+  #printable-apr * {
     visibility: visible !important;
   }
+
+  /* 5. Configuração do Passaporte SST (Cartão de Banco Centralizado) */
   #printable-passport {
+    position: absolute !important;
+    left: 50% !important;
+    top: 10mm !important;
+    transform: translateX(-50%) !important;
+    background-color: #333333 !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+  }
+
+  /* 6. Configuração da APR (Documento A4 Oficial) */
+  #printable-apr {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
+    max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    background: transparent !important;
     box-shadow: none !important;
   }
+
+  /* 7. Impede que as tabelas quebrem de forma desordenada */
+  #printable-apr table,
+  #printable-apr tr,
+  #printable-apr td,
+  #printable-apr th {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   @page {
-    size: auto;
-    margin: 10mm;
+    size: A4 portrait;
+    margin: 8mm;
   }
 }
