@@ -165,7 +165,7 @@ export default function GeradorAprPage() {
     }
   ])
 
-  // 1. CARREGAR DADOS SALVOS DA EMPRESA E MODELOS CUSTOMIZADOS
+  // CARREGAR DADOS SALVOS DA EMPRESA E MODELOS CUSTOMIZADOS
   useEffect(() => {
     const savedTemplates = localStorage.getItem('apr_custom_templates_v2')
     if (savedTemplates) {
@@ -192,7 +192,7 @@ export default function GeradorAprPage() {
     }
   }, [])
 
-  // 2. SALVAR AUTOMATICAMENTE OS DADOS DA EMPRESA A CADA ALTERAÇÃO
+  // SALVAR AUTOMATICAMENTE OS DADOS DA EMPRESA A CADA ALTERAÇÃO
   useEffect(() => {
     const dataToSave = {
       empresa,
@@ -318,16 +318,16 @@ export default function GeradorAprPage() {
       {/* PAINEL DE CONTROLE E EDIÇÃO (OCULTO NA IMPRESSÃO) */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6 print:hidden space-y-6">
         
-        {/* CABEÇALHO REAJUSTADO */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-2 py-1 px-1">
-          <div className="flex items-center gap-2">
+        {/* CABEÇALHO DA INTERFACE */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-1 px-1">
+          <div className="flex items-center gap-6">
             <div className="relative w-28 h-28 shrink-0">
               <Image
                 src="/img/login/logo_construtora.png"
                 alt="Quattro Construtora"
                 fill
                 unoptimized
-                className="object-contain object-left"
+                className="object-contain"
                 priority
               />
             </div>
@@ -336,7 +336,7 @@ export default function GeradorAprPage() {
               <span className="text-[10px] font-bold tracking-wider uppercase text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 inline-block whitespace-nowrap">
                 Módulo Técnico de SST
               </span>
-              <h1 className="text-2xl font-black uppercase text-gray-900 mt-0.5 whitespace-nowrap">
+              <h1 className="text-2xl font-black uppercase text-gray-900 mt-1 whitespace-nowrap">
                 Gerador de APR
               </h1>
             </div>
@@ -400,7 +400,7 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* Dados da Empresa e Obra (SALVO AUTOMATICAMENTE NO LOCALSTORAGE) */}
+        {/* Dados da Empresa e Obra */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="text-sm font-bold uppercase text-gray-900">
@@ -774,11 +774,13 @@ export default function GeradorAprPage() {
         id="printable-apr"
         className="max-w-[210mm] mx-auto bg-white p-6 shadow-2xl print:shadow-none print:max-w-none print:w-full print:p-0"
       >
-        {/* CABEÇALHO COM LOGO AMPLIADO NO DOCUMENTO IMPRESSO */}
+        {/* CABEÇALHO DA IMPRESSÃO — LOGO GRANDE E TÍTULO ALINHADOS À ESQUERDA */}
         <div className="border-2 border-black p-3 space-y-2">
           <div className="flex items-center justify-between border-b-2 border-black pb-2">
-            <div className="flex items-center gap-3">
-              <div className="relative w-52 h-16 shrink-0">
+            
+            {/* GRUPO ESQUERDO: LOGO + CAIXA DE TÍTULO APR */}
+            <div className="flex items-center gap-4">
+              <div className="relative w-24 h-24 shrink-0">
                 <Image
                   src="/img/login/logo_construtora.png"
                   alt="Quattro Construtora"
@@ -788,15 +790,14 @@ export default function GeradorAprPage() {
                   priority
                 />
               </div>
-            </div>
 
-            <div className="text-center">
-              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3 py-1 border border-black">
+              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3 py-1 border border-black whitespace-nowrap">
                 ANÁLISE PRELIMINAR DE RISCO — APR
               </h2>
             </div>
 
-            <div className="text-right text-[9px] font-bold">
+            {/* GRUPO DIREITO: DATA E OBRA */}
+            <div className="text-right text-[9px] font-bold shrink-0">
               <p>Data: {new Date(dataObra + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
               <p>Obra: {obraNome}</p>
             </div>
@@ -909,7 +910,7 @@ export default function GeradorAprPage() {
           </table>
         </div>
 
-        {/* RODAPÉ COM LIBERAÇÃO E TST (LINHAS AMPLIADAS) */}
+        {/* RODAPÉ COM LIBERAÇÃO E TST */}
         <div className="border-x-2 border-b-2 border-black p-2.5 text-[8.5px] flex items-center justify-between bg-gray-50 gap-4">
           <div className="flex-1 pr-2">
             <strong>Observações Gerais:</strong> {observacoes}

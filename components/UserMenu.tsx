@@ -79,6 +79,7 @@ export default function UserMenu() {
   const adminLinks = [
     { href: '/admin/empresas', label: 'Cadastro de Empresas e Usuários', icon: '🏢' },
     { href: '/admin/gerenciar', label: 'Gestão de Documentos', icon: '📋' },
+    { href: '/admin/apr', label: 'Gerador de APR (Segurança)', icon: '📝' },
     { href: '/admin/midia', label: 'Mídias e Treinamentos', icon: '🎬' },
     { href: '/admin/upload', label: 'Upload de Documentos', icon: '📤' },
   ]
