@@ -15,10 +15,15 @@ interface TemplateItem {
   title: string
   steps: AprStep[]
   tipoServico?: 'Construção' | 'Manutenção' | 'Comercial' | 'Emergência'
-  epis?: Record<string, boolean | string>
+  epis?: string[]
   epcs?: string[]
   anexos?: string[]
   isCustom?: boolean
+}
+
+interface EpiItem {
+  id: string
+  name: string
 }
 
 interface EpcItem {
@@ -30,6 +35,18 @@ interface AnexoItem {
   id: string
   name: string
 }
+
+// Lista Padrão de EPIs
+const DEFAULT_EPIS: string[] = [
+  'Capacete com Jugular',
+  'Óculos de Segurança',
+  'Calçado de Segurança',
+  'Luvas (Látex/Anti-corte)',
+  'Máscara Filtro PFF2',
+  'Colete Refletivo',
+  'Protetor Auditivo',
+  'Cinto Paraquedista (NR-35)'
+]
 
 // Lista Padrão de EPCs
 const DEFAULT_EPCS: string[] = [
@@ -73,7 +90,14 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   GERAL: {
     title: 'Serviços Gerais / Carga e Descarga de Materiais',
     tipoServico: 'Construção',
-    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: true, colete: true, protetorAuditivo: false, cintoParaquedista: false },
+    epis: [
+      'Capacete com Jugular',
+      'Óculos de Segurança',
+      'Calçado de Segurança',
+      'Luvas (Látex/Anti-corte)',
+      'Máscara Filtro PFF2',
+      'Colete Refletivo'
+    ],
     epcs: [
       'Cones, balizadores, cavaletes e barreiras de sinalização',
       'Fita zebrada, para sinalização e delimitação visual',
@@ -110,7 +134,14 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   ELETRICA: {
     title: 'Instalações e Manutenção Elétrica em Baixa Tensão',
     tipoServico: 'Manutenção',
-    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: false, colete: true, protetorAuditivo: true, cintoParaquedista: false },
+    epis: [
+      'Capacete com Jugular',
+      'Óculos de Segurança',
+      'Calçado de Segurança',
+      'Luvas (Látex/Anti-corte)',
+      'Colete Refletivo',
+      'Protetor Auditivo'
+    ],
     epcs: [
       'Quadros elétricos protegidos, fechados e sinalizados',
       'Bloqueio e sinalização de fontes de energia (LOTO)',
@@ -143,7 +174,15 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   PINTURA: {
     title: 'Pintura, Lixamento e Preparação de Superfícies',
     tipoServico: 'Manutenção',
-    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: true, colete: true, protetorAuditivo: true, cintoParaquedista: false },
+    epis: [
+      'Capacete com Jugular',
+      'Óculos de Segurança',
+      'Calçado de Segurança',
+      'Luvas (Látex/Anti-corte)',
+      'Máscara Filtro PFF2',
+      'Colete Refletivo',
+      'Protetor Auditivo'
+    ],
     epcs: [
       'Sistema de exaustão/ventilação coletiva para poeiras, fumos ou gases',
       'Anteparos e biombos de proteção para partículas, solda ou corte',
@@ -176,7 +215,14 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   ALTURA: {
     title: 'Trabalho em Altura / Montagem de Andaimes e Plataformas',
     tipoServico: 'Construção',
-    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: false, colete: true, protetorAuditivo: false, cintoParaquedista: true },
+    epis: [
+      'Capacete com Jugular',
+      'Óculos de Segurança',
+      'Calçado de Segurança',
+      'Luvas (Látex/Anti-corte)',
+      'Colete Refletivo',
+      'Cinto Paraquedista (NR-35)'
+    ],
     epcs: [
       'Linha de vida e pontos/sistemas de ancoragem (proteção coletiva)',
       'Cones, balizadores, cavaletes e barreiras de sinalização',
@@ -226,18 +272,21 @@ export default function GeradorAprPage() {
   const [numAssinaturas, setNumAssinaturas] = useState<number>(8)
   const [observacoes, setObservacoes] = useState('Atividade restrita aos colaboradores treinados e com exames/ASO válidos no sistema SST.')
 
-  // EPIs
-  const [epis, setEpis] = useState({
-    capacete: true,
-    oculos: true,
-    calcado: true,
-    luvas: true,
-    mascara: true,
-    colete: true,
-    protetorAuditivo: false,
-    cintoParaquedista: false,
-    outros: '',
+  // Lista Dinâmica de EPIs
+  const [epiList, setEpiList] = useState<EpiItem[]>(
+    DEFAULT_EPIS.map((name, i) => ({ id: `epi_${i}`, name }))
+  )
+
+  // EPIs Selecionados e Outros
+  const [selectedEpis, setSelectedEpis] = useState<Record<string, boolean>>({
+    'Capacete com Jugular': true,
+    'Óculos de Segurança': true,
+    'Calçado de Segurança': true,
+    'Luvas (Látex/Anti-corte)': true,
+    'Máscara Filtro PFF2': true,
+    'Colete Refletivo': true,
   })
+  const [epiOutros, setEpiOutros] = useState('')
 
   // Lista Dinâmica de EPCs
   const [epcList, setEpcList] = useState<EpcItem[]>(
@@ -276,6 +325,10 @@ export default function GeradorAprPage() {
     }
   ])
 
+  // Estados do Modal de Novo EPI
+  const [isEpiModalOpen, setIsEpiModalOpen] = useState(false)
+  const [newEpiName, setNewEpiName] = useState('')
+
   // Estados do Modal de Novo EPC
   const [isEpcModalOpen, setIsEpcModalOpen] = useState(false)
   const [newEpcName, setNewEpcName] = useState('')
@@ -286,8 +339,8 @@ export default function GeradorAprPage() {
 
   // Estado do Modal de Confirmação de Exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'TEMPLATE' | 'EPC' | 'ANEXO'
-    keyOrObj: string | EpcItem | AnexoItem
+    type: 'TEMPLATE' | 'EPI' | 'EPC' | 'ANEXO'
+    keyOrObj: string | EpiItem | EpcItem | AnexoItem
     name: string
   } | null>(null)
 
@@ -313,6 +366,15 @@ export default function GeradorAprPage() {
         if (parsedData.responsavelTst) setResponsavelTst(parsedData.responsavelTst)
       } catch (e) {
         console.error('Erro ao carregar dados salvos da empresa:', e)
+      }
+    }
+
+    const savedEpis = localStorage.getItem('apr_all_epis_v3')
+    if (savedEpis) {
+      try {
+        setEpiList(JSON.parse(savedEpis))
+      } catch (e) {
+        console.error('Erro ao carregar EPIs:', e)
       }
     }
 
@@ -359,7 +421,11 @@ export default function GeradorAprPage() {
       }
 
       if (item.epis) {
-        setEpis((prev) => ({ ...prev, ...item.epis }))
+        const newSelectedEpis: Record<string, boolean> = {}
+        item.epis.forEach((epiName) => {
+          newSelectedEpis[epiName] = true
+        })
+        setSelectedEpis(newSelectedEpis)
       }
 
       if (item.epcs) {
@@ -387,6 +453,15 @@ export default function GeradorAprPage() {
       type: 'TEMPLATE',
       keyOrObj: key,
       name: templates[key].title
+    })
+  }
+
+  const requestDeleteEpi = (e: React.MouseEvent, epiObj: EpiItem) => {
+    e.stopPropagation()
+    setDeleteTarget({
+      type: 'EPI',
+      keyOrObj: epiObj,
+      name: epiObj.name
     })
   }
 
@@ -418,6 +493,18 @@ export default function GeradorAprPage() {
       delete updated[key]
       setTemplates(updated)
       localStorage.setItem('apr_all_templates_v3', JSON.stringify(updated))
+    } else if (deleteTarget.type === 'EPI') {
+      const epiObj = deleteTarget.keyOrObj as EpiItem
+      const updatedList = epiList.filter((item) => item.id !== epiObj.id)
+      setEpiList(updatedList)
+
+      setSelectedEpis((prev) => {
+        const copy = { ...prev }
+        delete copy[epiObj.name]
+        return copy
+      })
+
+      localStorage.setItem('apr_all_epis_v3', JSON.stringify(updatedList))
     } else if (deleteTarget.type === 'EPC') {
       const epcObj = deleteTarget.keyOrObj as EpcItem
       const updatedList = epcList.filter((item) => item.id !== epcObj.id)
@@ -454,6 +541,7 @@ export default function GeradorAprPage() {
       return
     }
 
+    const currentEpiNames = Object.keys(selectedEpis).filter((k) => selectedEpis[k])
     const currentEpcNames = Object.keys(selectedEpcs).filter((k) => selectedEpcs[k])
     const currentAnexoNames = Object.keys(selectedAnexos).filter((k) => selectedAnexos[k])
 
@@ -461,7 +549,7 @@ export default function GeradorAprPage() {
     const newTemplateObj: TemplateItem = {
       title: newActivityTitle.trim(),
       tipoServico: tipoServico,
-      epis: { ...epis },
+      epis: currentEpiNames,
       epcs: currentEpcNames,
       anexos: currentAnexoNames,
       steps: newActivitySteps
@@ -484,6 +572,29 @@ export default function GeradorAprPage() {
       }
     ])
     setIsModalOpen(false)
+  }
+
+  // Salvar Novo EPI
+  const handleSaveNewEpi = () => {
+    const trimmed = newEpiName.trim()
+    if (!trimmed) {
+      alert('Por favor, informe a descrição do novo EPI.')
+      return
+    }
+
+    const newEpiObj: EpiItem = {
+      id: `epi_${Date.now()}`,
+      name: trimmed
+    }
+
+    const updatedList = [...epiList, newEpiObj]
+    setEpiList(updatedList)
+
+    setSelectedEpis((prev) => ({ ...prev, [trimmed]: true }))
+    localStorage.setItem('apr_all_epis_v3', JSON.stringify(updatedList))
+
+    setNewEpiName('')
+    setIsEpiModalOpen(false)
   }
 
   // Salvar Novo EPC
@@ -576,6 +687,10 @@ export default function GeradorAprPage() {
     setNewActivityTitleSteps(updated)
   }
 
+  const toggleEpi = (epiName: string) => {
+    setSelectedEpis((prev) => ({ ...prev, [epiName]: !prev[epiName] }))
+  }
+
   const toggleEpc = (epcName: string) => {
     setSelectedEpcs((prev) => ({ ...prev, [epcName]: !prev[epcName] }))
   }
@@ -594,7 +709,7 @@ export default function GeradorAprPage() {
       {/* PAINEL DE CONTROLE E EDIÇÃO (OCULTO NA IMPRESSÃO) */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6 print:hidden space-y-6">
         
-        {/* CABEÇALHO DA INTERFACE — ALINHAMENTO LADO A LADO SEM ESPAÇO FANTASMA */}
+        {/* CABEÇALHO DA INTERFACE */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2 px-1">
           <div className="flex items-center gap-3">
             <div className="relative w-20 h-20 shrink-0">
@@ -780,50 +895,48 @@ export default function GeradorAprPage() {
           </h2>
 
           <div>
-            <label className="font-bold text-xs uppercase text-amber-800 block mb-2">
-              EPI — Equipamentos de Proteção Individual:
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.capacete} onChange={(e) => setEpis({ ...epis, capacete: e.target.checked })} />
-                Capacete com Jugular
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-bold text-xs uppercase text-amber-800 block">
+                EPI — Equipamentos de Proteção Individual:
               </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.oculos} onChange={(e) => setEpis({ ...epis, oculos: e.target.checked })} />
-                Óculos de Segurança
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.calcado} onChange={(e) => setEpis({ ...epis, calcado: e.target.checked })} />
-                Calçado de Segurança
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.luvas} onChange={(e) => setEpis({ ...epis, luvas: e.target.checked })} />
-                Luvas (Látex/Anti-corte)
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.mascara} onChange={(e) => setEpis({ ...epis, mascara: e.target.checked })} />
-                Máscara Filtro PFF2
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.colete} onChange={(e) => setEpis({ ...epis, colete: e.target.checked })} />
-                Colete Refletivo
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.protetorAuditivo} onChange={(e) => setEpis({ ...epis, protetorAuditivo: e.target.checked })} />
-                Protetor Auditivo
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={!!epis.cintoParaquedista} onChange={(e) => setEpis({ ...epis, cintoParaquedista: e.target.checked })} />
-                Cinto Paraquedista (NR-35)
-              </label>
+              <button
+                onClick={() => setIsEpiModalOpen(true)}
+                className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-black text-[11px] font-extrabold uppercase rounded-lg transition-all cursor-pointer shadow-sm flex items-center gap-1"
+              >
+                ➕ Cadastrar Novo EPI
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {epiList.map((epiObj) => (
+                <div key={epiObj.id} className="flex items-center justify-between p-1.5 rounded hover:bg-gray-50 border border-transparent hover:border-gray-200">
+                  <label className="flex items-start gap-2 cursor-pointer font-medium flex-1">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedEpis[epiObj.name]}
+                      onChange={() => toggleEpi(epiObj.name)}
+                      className="mt-0.5"
+                    />
+                    <span>{epiObj.name}</span>
+                  </label>
+
+                  <button
+                    onClick={(e) => requestDeleteEpi(e, epiObj)}
+                    title="Excluir este EPI"
+                    className="text-red-500 hover:text-red-700 font-bold px-1.5 text-xs hover:bg-red-50 rounded cursor-pointer ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="pt-2">
               <input
                 type="text"
                 placeholder="Outros EPIs / Equipamentos específicos..."
-                value={epis.outros as string}
-                onChange={(e) => setEpis({ ...epis, outros: e.target.value })}
+                value={epiOutros}
+                onChange={(e) => setEpiOutros(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg text-xs font-medium"
               />
             </div>
@@ -1121,6 +1234,60 @@ export default function GeradorAprPage() {
         </div>
       )}
 
+      {/* MODAL PARA CADASTRAR NOVO EPI */}
+      {isEpiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-gray-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-black uppercase text-gray-900">
+                  ➕ Cadastrar Novo EPI
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Adicione um Equipamento de Proteção Individual à lista.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsEpiModalOpen(false)}
+                className="text-gray-400 hover:text-black font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-black text-gray-900 uppercase block mb-1">
+                  Nome do EPI:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Protetor Facial Anti-impacto, Vestimenta Anti-arco..."
+                  value={newEpiName}
+                  onChange={(e) => setNewEpiName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-xl font-bold text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <button
+                onClick={() => setIsEpiModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 text-xs font-bold uppercase rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveNewEpi}
+                className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-black uppercase rounded-xl shadow-md"
+              >
+                💾 Salvar e Selecionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL PARA CADASTRAR NOVO EPC */}
       {isEpcModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
@@ -1334,17 +1501,17 @@ export default function GeradorAprPage() {
               EPI — Equipamento de Proteção Individual Obrigatórios:
             </strong>
             <div className="grid grid-cols-3 gap-1 font-medium">
-              <p>[{epis.capacete ? 'X' : ' '}] Capacete com jugular</p>
-              <p>[{epis.oculos ? 'X' : ' '}] Óculos de segurança</p>
-              <p>[{epis.calcado ? 'X' : ' '}] Calçado de segurança</p>
-              <p>[{epis.luvas ? 'X' : ' '}] Luva látex / anti-corte</p>
-              <p>[{epis.mascara ? 'X' : ' '}] Máscara Filtro PFF2</p>
-              <p>[{epis.colete ? 'X' : ' '}] Colete/faixa refletiva</p>
-              {epis.protetorAuditivo && <p>[X] Protetor Auditivo</p>}
-              {epis.cintoParaquedista && <p>[X] Cinto Paraquedista (NR-35)</p>}
-              {epis.outros && (
+              {epiList.map((epiObj) => {
+                const isChecked = !!selectedEpis[epiObj.name]
+                return (
+                  <p key={epiObj.id} className={isChecked ? 'font-bold text-black' : 'text-gray-400'}>
+                    [{isChecked ? 'X' : '  '}] {epiObj.name}
+                  </p>
+                )
+              })}
+              {epiOutros && (
                 <p className="col-span-3 font-bold text-black border-t pt-1 mt-1">
-                  [X] OUTROS: {epis.outros}
+                  [X] OUTROS: {epiOutros}
                 </p>
               )}
             </div>
