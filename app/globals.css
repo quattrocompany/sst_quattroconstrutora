@@ -56,7 +56,7 @@ body {
   /* 3. MARGEM CLEAN DE 10mm AO REDOR DA FOLHA IMPRESSA (A4) */
   @page {
     size: A4 portrait;
-    margin: 10mm !important;
+    margin: 11mm !important;
   }
 
   /* 4. Oculta a interface da tela para isolar o documento impresso */
