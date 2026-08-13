@@ -14,13 +14,16 @@ interface AprStep {
 interface TemplateItem {
   title: string
   steps: AprStep[]
+  tipoServico?: 'Construção' | 'Manutenção' | 'Comercial' | 'Emergência'
+  epis?: Record<string, boolean | string> // <--- Permite booleanos e a string do campo 'outros'
+  epcs?: string[]
+  anexos?: string[]
   isCustom?: boolean
 }
 
 interface EpcItem {
   id: string
   name: string
-  isCustom?: boolean
 }
 
 // Lista Padrão de EPCs
@@ -60,10 +63,18 @@ const LISTA_ANEXOS = [
   'ANEXO J - ESCAVAÇÃO'
 ]
 
-// Modelos Padrões de fábrica
+// Modelos Padrões de fábrica com inteligência de seleção automática (EPIs, EPCs, Anexos)
 const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   GERAL: {
     title: 'Serviços Gerais / Carga e Descarga de Materiais',
+    tipoServico: 'Construção',
+    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: true, colete: true, protetorAuditivo: false, cintoParaquedista: false },
+    epcs: [
+      'Cones, balizadores, cavaletes e barreiras de sinalização',
+      'Fita zebrada, para sinalização e delimitação visual',
+      'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)'
+    ],
+    anexos: ['ANEXO A - PT'],
     steps: [
       {
         servico: '1. Leitura, validação da APR e planejamento da atividade',
@@ -93,6 +104,16 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   },
   ELETRICA: {
     title: 'Instalações e Manutenção Elétrica em Baixa Tensão',
+    tipoServico: 'Manutenção',
+    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: false, colete: true, protetorAuditivo: true, cintoParaquedista: false },
+    epcs: [
+      'Quadros elétricos protegidos, fechados e sinalizados',
+      'Bloqueio e sinalização de fontes de energia (LOTO)',
+      'Cones, balizadores, cavaletes e barreiras de sinalização',
+      'Fita zebrada, para sinalização e delimitação visual',
+      'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)'
+    ],
+    anexos: ['ANEXO A - PT', 'ANEXO B - LOTO', 'ANEXO F - TRABALHOS ELÉTRICOS'],
     steps: [
       {
         servico: '1. Planejamento, bloqueio e sinalização (LOTO)',
@@ -116,6 +137,16 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   },
   PINTURA: {
     title: 'Pintura, Lixamento e Preparação de Superfícies',
+    tipoServico: 'Manutenção',
+    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: true, colete: true, protetorAuditivo: true, cintoParaquedista: false },
+    epcs: [
+      'Sistema de exaustão/ventilação coletiva para poeiras, fumos ou gases',
+      'Anteparos e biombos de proteção para partículas, solda ou corte',
+      'Fita zebrada, para sinalização e delimitação visual',
+      'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)',
+      'Bacias de contenção para produtos químicos'
+    ],
+    anexos: ['ANEXO A - PT'],
     steps: [
       {
         servico: '1. Preparação da área e lixamento de superfícies',
@@ -139,6 +170,16 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   },
   ALTURA: {
     title: 'Trabalho em Altura / Montagem de Andaimes e Plataformas',
+    tipoServico: 'Construção',
+    epis: { capacete: true, oculos: true, calcado: true, luvas: true, mascara: false, colete: true, protetorAuditivo: false, cintoParaquedista: true },
+    epcs: [
+      'Linha de vida e pontos/sistemas de ancoragem (proteção coletiva)',
+      'Cones, balizadores, cavaletes e barreiras de sinalização',
+      'Fita zebrada, para sinalização e delimitação visual',
+      'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)',
+      'Sinalização de áreas de circulação sujeitas à queda de objetos'
+    ],
+    anexos: ['ANEXO A - PT', 'ANEXO C - TRABALHO EM ALTURA', 'ANEXO C1 - AVALIAÇÃO FÍSICA', 'ANEXO C2 - INSPEÇÃO DE CINTOS', 'ANEXO E - ACESSO AO TELHADO'],
     steps: [
       {
         servico: '1. Inspeção de EPIs de Altura e Sistema de Ancoragem',
@@ -193,9 +234,9 @@ export default function GeradorAprPage() {
     outros: '',
   })
 
-  // Lista Dinâmica de EPCs (Padrão + Customizados)
+  // Lista Dinâmica de EPCs
   const [epcList, setEpcList] = useState<EpcItem[]>(
-    DEFAULT_EPCS.map((name, i) => ({ id: `default_${i}`, name, isCustom: false }))
+    DEFAULT_EPCS.map((name, i) => ({ id: `epc_${i}`, name }))
   )
 
   // EPCs Selecionados
@@ -238,11 +279,10 @@ export default function GeradorAprPage() {
 
   // CARREGAR DADOS SALVOS NO LOCALSTORAGE
   useEffect(() => {
-    const savedTemplates = localStorage.getItem('apr_custom_templates_v2')
+    const savedTemplates = localStorage.getItem('apr_all_templates_v3')
     if (savedTemplates) {
       try {
-        const parsed = JSON.parse(savedTemplates)
-        setTemplates({ ...DEFAULT_TEMPLATES, ...parsed })
+        setTemplates(JSON.parse(savedTemplates))
       } catch (e) {
         console.error('Erro ao carregar modelos:', e)
       }
@@ -262,13 +302,12 @@ export default function GeradorAprPage() {
       }
     }
 
-    const savedCustomEpcs = localStorage.getItem('apr_custom_epcs_v1')
-    if (savedCustomEpcs) {
+    const savedEpcs = localStorage.getItem('apr_all_epcs_v3')
+    if (savedEpcs) {
       try {
-        const parsedEpcs: EpcItem[] = JSON.parse(savedCustomEpcs)
-        setEpcList((prev) => [...prev, ...parsedEpcs])
+        setEpcList(JSON.parse(savedEpcs))
       } catch (e) {
-        console.error('Erro ao carregar EPCs customizados:', e)
+        console.error('Erro ao carregar EPCs:', e)
       }
     }
   }, [])
@@ -285,11 +324,36 @@ export default function GeradorAprPage() {
     localStorage.setItem('apr_last_used_company_data', JSON.stringify(dataToSave))
   }, [empresa, cnpj, obraNome, localSetor, responsavelTst])
 
-  // Selecionar Modelo
+  // Selecionar Modelo com Auto-preenchimento Inteligente de todas as seções
   const handleSelectPreset = (key: string) => {
-    if (templates[key]) {
-      setPassos(templates[key].steps)
-      setDescricaoAtividade(templates[key].title)
+    const item = templates[key]
+    if (item) {
+      setPassos(item.steps)
+      setDescricaoAtividade(item.title)
+
+      if (item.tipoServico) {
+        setTipoServico(item.tipoServico)
+      }
+
+      if (item.epis) {
+        setEpis((prev) => ({ ...prev, ...item.epis }))
+      }
+
+      if (item.epcs) {
+        const newSelectedEpcs: Record<string, boolean> = {}
+        item.epcs.forEach((epcName) => {
+          newSelectedEpcs[epcName] = true
+        })
+        setSelectedEpcs(newSelectedEpcs)
+      }
+
+      if (item.anexos) {
+        const newSelectedAnexos: Record<string, boolean> = {}
+        item.anexos.forEach((anxName) => {
+          newSelectedAnexos[anxName] = true
+        })
+        setSelectedAnexos(newSelectedAnexos)
+      }
     }
   }
 
@@ -321,11 +385,7 @@ export default function GeradorAprPage() {
       const updated = { ...templates }
       delete updated[key]
       setTemplates(updated)
-
-      const customOnly = Object.fromEntries(
-        Object.entries(updated).filter(([_, v]) => v.isCustom)
-      )
-      localStorage.setItem('apr_custom_templates_v2', JSON.stringify(customOnly))
+      localStorage.setItem('apr_all_templates_v3', JSON.stringify(updated))
     } else if (deleteTarget.type === 'EPC') {
       const epcObj = deleteTarget.keyOrObj as EpcItem
       const updatedList = epcList.filter((item) => item.id !== epcObj.id)
@@ -337,8 +397,7 @@ export default function GeradorAprPage() {
         return copy
       })
 
-      const customOnly = updatedList.filter((item) => item.isCustom)
-      localStorage.setItem('apr_custom_epcs_v1', JSON.stringify(customOnly))
+      localStorage.setItem('apr_all_epcs_v3', JSON.stringify(updatedList))
     }
 
     setDeleteTarget(null)
@@ -351,20 +410,22 @@ export default function GeradorAprPage() {
       return
     }
 
+    const currentEpcNames = Object.keys(selectedEpcs).filter((k) => selectedEpcs[k])
+    const currentAnexoNames = Object.keys(selectedAnexos).filter((k) => selectedAnexos[k])
+
     const newKey = 'CUSTOM_' + Date.now()
     const newTemplateObj: TemplateItem = {
       title: newActivityTitle.trim(),
-      steps: newActivitySteps,
-      isCustom: true,
+      tipoServico: tipoServico,
+      epis: { ...epis },
+      epcs: currentEpcNames,
+      anexos: currentAnexoNames,
+      steps: newActivitySteps
     }
 
     const updatedTemplates = { ...templates, [newKey]: newTemplateObj }
     setTemplates(updatedTemplates)
-
-    const customOnly = Object.fromEntries(
-      Object.entries(updatedTemplates).filter(([_, v]) => v.isCustom)
-    )
-    localStorage.setItem('apr_custom_templates_v2', JSON.stringify(customOnly))
+    localStorage.setItem('apr_all_templates_v3', JSON.stringify(updatedTemplates))
 
     setPassos(newActivitySteps)
     setDescricaoAtividade(newActivityTitle.trim())
@@ -390,18 +451,15 @@ export default function GeradorAprPage() {
     }
 
     const newEpcObj: EpcItem = {
-      id: `custom_${Date.now()}`,
-      name: trimmed,
-      isCustom: true,
+      id: `epc_${Date.now()}`,
+      name: trimmed
     }
 
     const updatedList = [...epcList, newEpcObj]
     setEpcList(updatedList)
 
     setSelectedEpcs((prev) => ({ ...prev, [trimmed]: true }))
-
-    const customOnly = updatedList.filter((item) => item.isCustom)
-    localStorage.setItem('apr_custom_epcs_v1', JSON.stringify(customOnly))
+    localStorage.setItem('apr_all_epcs_v3', JSON.stringify(updatedList))
 
     setNewEpcName('')
     setIsEpcModalOpen(false)
@@ -469,10 +527,10 @@ export default function GeradorAprPage() {
       {/* PAINEL DE CONTROLE E EDIÇÃO (OCULTO NA IMPRESSÃO) */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6 print:hidden space-y-6">
         
-        {/* CABEÇALHO DA INTERFACE */}
+        {/* CABEÇALHO DA INTERFACE — ALINHAMENTO LADO A LADO SEM ESPAÇO FANTASMA */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2 px-1">
-          <div className="flex items-center gap-6">
-            <div className="relative w-40 h-12 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="relative w-20 h-20 shrink-0">
               <Image
                 src="/img/login/logo_construtora.png"
                 alt="Quattro Construtora"
@@ -483,11 +541,11 @@ export default function GeradorAprPage() {
               />
             </div>
 
-            <div className="pl-2">
+            <div>
               <span className="text-[10px] font-bold tracking-wider uppercase text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 inline-block whitespace-nowrap">
                 Módulo Técnico de SST
               </span>
-              <h1 className="text-2xl font-black uppercase text-gray-900 mt-1 whitespace-nowrap">
+              <h1 className="text-2xl font-black uppercase text-gray-900 mt-0.5 whitespace-nowrap">
                 Gerador de APR
               </h1>
             </div>
@@ -536,15 +594,13 @@ export default function GeradorAprPage() {
                     + {item.title}
                   </button>
 
-                  {item.isCustom && (
-                    <button
-                      onClick={(e) => requestDeleteTemplate(e, key)}
-                      title="Excluir este modelo"
-                      className="text-red-500 hover:text-red-700 font-black px-1.5 py-0.5 text-xs hover:bg-red-50 rounded cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => requestDeleteTemplate(e, key)}
+                    title="Excluir este modelo"
+                    className="text-red-500 hover:text-red-700 font-black px-1.5 py-0.5 text-xs hover:bg-red-50 rounded cursor-pointer ml-1"
+                  >
+                    ✕
+                  </button>
                 </div>
               )
             })}
@@ -732,15 +788,13 @@ export default function GeradorAprPage() {
                     <span>{epcObj.name}</span>
                   </label>
 
-                  {epcObj.isCustom && (
-                    <button
-                      onClick={(e) => requestDeleteEpc(e, epcObj)}
-                      title="Excluir este EPC"
-                      className="text-red-500 hover:text-red-700 font-bold px-1.5 text-xs hover:bg-red-50 rounded cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => requestDeleteEpc(e, epcObj)}
+                    title="Excluir este EPC"
+                    className="text-red-500 hover:text-red-700 font-bold px-1.5 text-xs hover:bg-red-50 rounded cursor-pointer ml-1"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
@@ -1247,7 +1301,7 @@ export default function GeradorAprPage() {
           </table>
         </div>
 
-        {/* RODAPÉ COM LIBERAÇÃO E TST (SE PRECISAR, PULA INTEIRO PARA A PRÓXIMA PÁGINA) */}
+        {/* RODAPÉ COM LIBERAÇÃO E TST */}
         <div className="border-x-2 border-b-2 border-black p-2.5 text-[8.5px] flex items-center justify-between bg-gray-50 gap-4 print-avoid-break">
           <div className="flex-1 pr-2">
             <strong>Observações Gerais:</strong> {observacoes}
