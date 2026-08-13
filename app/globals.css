@@ -76,23 +76,28 @@ body {
     box-shadow: none !important;
   }
 
-  /* 6. Configuração da APR (Documento A4 Oficial) */
+  /* 6. Configuração da APR (Documento A4 Oficial - Fluído para Multi-páginas) */
   #printable-apr {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
+    display: block !important;
   }
 
-  /* 7. Impede que as tabelas quebrem de forma desordenada */
-  #printable-apr table,
-  #printable-apr tr,
-  #printable-apr td,
-  #printable-apr th {
+  /* 7. Controle fino de quebra de páginas para tabelas e blocos da APR */
+  #printable-apr table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  #printable-apr thead {
+    display: table-header-group !important;
+  }
+
+  #printable-apr tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

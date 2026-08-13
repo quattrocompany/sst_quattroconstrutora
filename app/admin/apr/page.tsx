@@ -17,6 +17,43 @@ interface TemplateItem {
   isCustom?: boolean
 }
 
+// Lista fixa de EPCs
+const LISTA_EPCS = [
+  'Fechamento/proteção de aberturas no piso e lajes',
+  'Linha de vida e pontos/sistemas de ancoragem (proteção coletiva)',
+  'Cones, balizadores, cavaletes e barreiras de sinalização',
+  'Fita zebrada, para sinalização e delimitação visual',
+  'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)',
+  'Sinalização e delimitação de caminho seguro para pedestres',
+  'Anteparos e biombos de proteção para partículas, solda ou corte',
+  'Sistema de exaustão/ventilação coletiva para poeiras, fumos ou gases',
+  'Extintores de incêndio adequados às classes de risco',
+  'Mantas antichama e telas de proteção para trabalho a quente',
+  'Iluminação de emergência',
+  'Quadros elétricos protegidos, fechados e sinalizados',
+  'Bloqueio e sinalização de fontes de energia (LOTO)',
+  'Sinalização de áreas de circulação sujeitas à queda de objetos',
+  'Kit de contenção de derramamentos (combustíveis, óleos, químicos)',
+  'Bacias de contenção para produtos químicos',
+  'Lava-olhos de emergência portátil'
+]
+
+// Lista fixa de Anexos
+const LISTA_ANEXOS = [
+  'ANEXO A - PT',
+  'ANEXO B - LOTO',
+  'ANEXO C - TRABALHO EM ALTURA',
+  'ANEXO C1 - AVALIAÇÃO FÍSICA',
+  'ANEXO C2 - INSPEÇÃO DE CINTOS',
+  'ANEXO D - PTA',
+  'ANEXO E - ACESSO AO TELHADO',
+  'ANEXO F - TRABALHOS ELÉTRICOS',
+  'ANEXO G - TRABALHO A QUENTE',
+  'ANEXO H - ESPAÇO CONFINADO',
+  'ANEXO I - IÇAMENTO',
+  'ANEXO J - ESCAVAÇÃO'
+]
+
 // Modelos Padrões de fábrica
 const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   GERAL: {
@@ -150,6 +187,18 @@ export default function GeradorAprPage() {
     outros: '',
   })
 
+  // EPCs Selecionados
+  const [selectedEpcs, setSelectedEpcs] = useState<Record<string, boolean>>({
+    'Cones, balizadores, cavaletes e barreiras de sinalização': true,
+    'Fita zebrada, para sinalização e delimitação visual': true,
+    'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)': true,
+  })
+
+  // Anexos Selecionados
+  const [selectedAnexos, setSelectedAnexos] = useState<Record<string, boolean>>({
+    'ANEXO A - PT': true,
+  })
+
   // Passos em edição
   const [passos, setPassos] = useState<AprStep[]>(DEFAULT_TEMPLATES.GERAL.steps)
 
@@ -204,7 +253,6 @@ export default function GeradorAprPage() {
     localStorage.setItem('apr_last_used_company_data', JSON.stringify(dataToSave))
   }, [empresa, cnpj, obraNome, localSetor, responsavelTst])
 
-  // Selecionar Modelo
   const handleSelectPreset = (key: string) => {
     if (templates[key]) {
       setPassos(templates[key].steps)
@@ -212,7 +260,6 @@ export default function GeradorAprPage() {
     }
   }
 
-  // Deletar Atividade Customizada
   const handleDeleteTemplate = (e: React.MouseEvent, key: string) => {
     e.stopPropagation()
     if (confirm(`Deseja realmente excluir o modelo "${templates[key].title}"?`)) {
@@ -227,7 +274,6 @@ export default function GeradorAprPage() {
     }
   }
 
-  // Salvar Nova Atividade
   const handleSaveNewActivity = () => {
     if (!newActivityTitle.trim()) {
       alert('Por favor, informe o título da nova atividade.')
@@ -308,6 +354,14 @@ export default function GeradorAprPage() {
     setNewActivityTitleSteps(updated)
   }
 
+  const toggleEpc = (epc: string) => {
+    setSelectedEpcs((prev) => ({ ...prev, [epc]: !prev[epc] }))
+  }
+
+  const toggleAnexo = (anexo: string) => {
+    setSelectedAnexos((prev) => ({ ...prev, [anexo]: !prev[anexo] }))
+  }
+
   const handlePrint = () => {
     window.print()
   }
@@ -318,21 +372,21 @@ export default function GeradorAprPage() {
       {/* PAINEL DE CONTROLE E EDIÇÃO (OCULTO NA IMPRESSÃO) */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6 print:hidden space-y-6">
         
-        {/* CABEÇALHO DA INTERFACE */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-1 px-1">
+        {/* CABEÇALHO DA INTERFACE — RETÂNGULO W-40 H-12 COM GAP-6 E PL-2 */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2 px-1">
           <div className="flex items-center gap-6">
-            <div className="relative w-28 h-28 shrink-0">
+            <div className="relative w-40 h-12 shrink-0">
               <Image
                 src="/img/login/logo_construtora.png"
                 alt="Quattro Construtora"
                 fill
                 unoptimized
-                className="object-contain"
+                className="object-contain object-left"
                 priority
               />
             </div>
 
-            <div>
+            <div className="pl-2">
               <span className="text-[10px] font-bold tracking-wider uppercase text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 inline-block whitespace-nowrap">
                 Módulo Técnico de SST
               </span>
@@ -499,67 +553,107 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* Seleção de EPIs */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+        {/* 2. Seleção de EPIs e EPCs */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-5">
           <h2 className="text-sm font-bold uppercase text-gray-900 border-b pb-2">
-            2. Equipamentos de Proteção Individual e Coletiva (EPIs / EPCs)
+            2. Equipamentos de Proteção (EPIs / EPCs)
           </h2>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.capacete} onChange={(e) => setEpis({ ...epis, capacete: e.target.checked })} />
-              Capacete com Jugular
+          <div>
+            <label className="font-bold text-xs uppercase text-amber-800 block mb-2">
+              EPI — Equipamentos de Proteção Individual:
             </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.oculos} onChange={(e) => setEpis({ ...epis, oculos: e.target.checked })} />
-              Óculos de Segurança
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.calcado} onChange={(e) => setEpis({ ...epis, calcado: e.target.checked })} />
-              Calçado de Segurança
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.luvas} onChange={(e) => setEpis({ ...epis, luvas: e.target.checked })} />
-              Luvas (Látex/Anti-corte)
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.mascara} onChange={(e) => setEpis({ ...epis, mascara: e.target.checked })} />
-              Máscara Filtro PFF2
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.colete} onChange={(e) => setEpis({ ...epis, colete: e.target.checked })} />
-              Colete Refletivo
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.protetorAuditivo} onChange={(e) => setEpis({ ...epis, protetorAuditivo: e.target.checked })} />
-              Protetor Auditivo
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer font-medium">
-              <input type="checkbox" checked={epis.cintoParaquedista} onChange={(e) => setEpis({ ...epis, cintoParaquedista: e.target.checked })} />
-              Cinto Paraquedista (NR-35)
-            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.capacete} onChange={(e) => setEpis({ ...epis, capacete: e.target.checked })} />
+                Capacete com Jugular
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.oculos} onChange={(e) => setEpis({ ...epis, oculos: e.target.checked })} />
+                Óculos de Segurança
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.calcado} onChange={(e) => setEpis({ ...epis, calcado: e.target.checked })} />
+                Calçado de Segurança
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.luvas} onChange={(e) => setEpis({ ...epis, luvas: e.target.checked })} />
+                Luvas (Látex/Anti-corte)
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.mascara} onChange={(e) => setEpis({ ...epis, mascara: e.target.checked })} />
+                Máscara Filtro PFF2
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.colete} onChange={(e) => setEpis({ ...epis, colete: e.target.checked })} />
+                Colete Refletivo
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.protetorAuditivo} onChange={(e) => setEpis({ ...epis, protetorAuditivo: e.target.checked })} />
+                Protetor Auditivo
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-medium">
+                <input type="checkbox" checked={epis.cintoParaquedista} onChange={(e) => setEpis({ ...epis, cintoParaquedista: e.target.checked })} />
+                Cinto Paraquedista (NR-35)
+              </label>
+            </div>
+
+            <div className="pt-2">
+              <input
+                type="text"
+                placeholder="Outros EPIs / Equipamentos específicos..."
+                value={epis.outros}
+                onChange={(e) => setEpis({ ...epis, outros: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded-lg text-xs font-medium"
+              />
+            </div>
           </div>
 
-          <div className="pt-2">
-            <label className="font-bold text-xs text-gray-800 block mb-1">
-              OUTROS EPIs / EQUIPAMENTOS ESPECÍFICOS:
+          <div className="border-t pt-4">
+            <label className="font-bold text-xs uppercase text-amber-800 block mb-2">
+              EPC — Equipamentos de Proteção Coletiva Aplicáveis:
             </label>
-            <input
-              type="text"
-              placeholder="Digite se houver outros equipamentos (Ex: Trava-quedas, Máscara Vapores, Resgate...)"
-              value={epis.outros}
-              onChange={(e) => setEpis({ ...epis, outros: e.target.value })}
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-xs font-medium"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {LISTA_EPCS.map((epcItem) => (
+                <label key={epcItem} className="flex items-start gap-2 cursor-pointer font-medium p-1.5 rounded hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={!!selectedEpcs[epcItem]}
+                    onChange={() => toggleEpc(epcItem)}
+                    className="mt-0.5"
+                  />
+                  <span>{epcItem}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Tabela de Passos Totalmente Editável */}
+        {/* 3. Seleção de Anexos do Documento */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
+          <h2 className="text-sm font-bold uppercase text-gray-900 border-b pb-2">
+            3. Anexos Obrigatórios Vinculados à APR
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 text-xs">
+            {LISTA_ANEXOS.map((anexoItem) => (
+              <label key={anexoItem} className="flex items-center gap-2 cursor-pointer font-bold p-1.5 rounded hover:bg-amber-50/50 border border-gray-100">
+                <input
+                  type="checkbox"
+                  checked={!!selectedAnexos[anexoItem]}
+                  onChange={() => toggleAnexo(anexoItem)}
+                />
+                <span>{anexoItem}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* 4. Tabela de Passos Totalmente Editável */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
             <div>
               <h2 className="text-sm font-bold uppercase text-gray-900">
-                3. Etapas de Execução, Riscos e Medidas Preventivas
+                4. Etapas de Execução, Riscos e Medidas Preventivas
               </h2>
               <p className="text-xs text-gray-500">
                 Altere qualquer texto abaixo. Os dados serão atualizados no documento de impressão.
@@ -774,13 +868,13 @@ export default function GeradorAprPage() {
         id="printable-apr"
         className="max-w-[210mm] mx-auto bg-white p-6 shadow-2xl print:shadow-none print:max-w-none print:w-full print:p-0"
       >
-        {/* CABEÇALHO DA IMPRESSÃO — LOGO GRANDE E TÍTULO ALINHADOS À ESQUERDA */}
+        {/* CABEÇALHO DA IMPRESSÃO */}
         <div className="border-2 border-black p-3 space-y-2">
           <div className="flex items-center justify-between border-b-2 border-black pb-2">
             
             {/* GRUPO ESQUERDO: LOGO + CAIXA DE TÍTULO APR */}
             <div className="flex items-center gap-4">
-              <div className="relative w-24 h-24 shrink-0">
+              <div className="relative w-36 h-12 shrink-0">
                 <Image
                   src="/img/login/logo_construtora.png"
                   alt="Quattro Construtora"
@@ -791,7 +885,7 @@ export default function GeradorAprPage() {
                 />
               </div>
 
-              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3 py-1 border border-black whitespace-nowrap">
+              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3.5 py-1.5 border border-black whitespace-nowrap">
                 ANÁLISE PRELIMINAR DE RISCO — APR
               </h2>
             </div>
@@ -830,8 +924,8 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* EPIs E OUTROS EQUIPAMENTOS */}
-        <div className="border-x-2 border-b-2 border-black p-3 space-y-2 text-[9.5px]">
+        {/* EPIs, EPCs E ANEXOS */}
+        <div className="border-x-2 border-b-2 border-black p-3 space-y-2 text-[9px]">
           <div>
             <strong className="block uppercase border-b border-gray-400 pb-0.5 mb-1">
               EPI — Equipamento de Proteção Individual Obrigatórios:
@@ -853,8 +947,42 @@ export default function GeradorAprPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-300 pt-1 leading-tight text-[8.5px] text-gray-800">
-            <p><strong>RECOMENDAÇÕES GERAIS E ISOLAMENTO:</strong> Utilizar equipamentos e medidas de proteção coletiva (EPCs) compatíveis, incluindo cones, fitas de sinalização, barreiras físicas e placas de advertência. As rotas de circulação devem ser mantidas desobstruídas.</p>
+          {/* EPCs SELECIONADOS */}
+          <div className="border-t border-gray-300 pt-1.5">
+            <strong className="block uppercase border-b border-gray-400 pb-0.5 mb-1">
+              EPC — Equipamentos de Proteção Coletiva Aplicáveis:
+            </strong>
+            <div className="grid grid-cols-2 gap-1 font-medium text-[8.5px]">
+              {LISTA_EPCS.map((epcItem) => {
+                const isChecked = !!selectedEpcs[epcItem]
+                return (
+                  <p key={epcItem} className={isChecked ? 'font-bold text-black' : 'text-gray-400'}>
+                    [{isChecked ? 'X' : '  '}] {epcItem}
+                  </p>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ANEXOS VINCULADOS */}
+          <div className="border-t border-gray-300 pt-1.5">
+            <strong className="block uppercase border-b border-gray-400 pb-0.5 mb-1">
+              DOCUMENTOS E ANEXOS COMPLEMENTARES VINCULADOS:
+            </strong>
+            <div className="grid grid-cols-3 gap-1 font-bold text-[8.5px]">
+              {LISTA_ANEXOS.map((anexoItem) => {
+                const isChecked = !!selectedAnexos[anexoItem]
+                return (
+                  <p key={anexoItem} className={isChecked ? 'text-black font-black' : 'text-gray-400'}>
+                    [{isChecked ? 'X' : '  '}] {anexoItem}
+                  </p>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-300 pt-1 leading-tight text-[8px] text-gray-800">
+            <p><strong>RECOMENDAÇÕES GERAIS:</strong> Além dos EPIs e EPCs listados, é obrigatória a manutenção das áreas livres de resíduos e a delimitação de caminho seguro. O descumprimento das regras de SST sujeita o colaborador a penalidades regulamentares.</p>
           </div>
         </div>
 
