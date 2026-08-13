@@ -20,14 +20,21 @@ interface MediaItem {
   created_at: string
 }
 
+// FUNÇÃO GLOBAL DE CONVERSÃO DE LINKS DE YOUTUBE E VIMEO
 function formatEmbedUrl(urlStr: string): string {
+  if (!urlStr) return ''
+
+  // YouTube
   if (urlStr.includes('youtube.com') || urlStr.includes('youtu.be')) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+    if (urlStr.includes('youtube.com/embed/')) return urlStr // Já é embed válido
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/
     const match = urlStr.match(regExp)
-    if (match && match[2].length === 11) {
+    if (match && match[2] && match[2].length === 11) {
       return `https://www.youtube.com/embed/${match[2]}`
     }
   }
+
+  // Vimeo
   if (urlStr.includes('vimeo.com')) {
     const regExp = /vimeo\.com\/(\d+)/
     const match = urlStr.match(regExp)
@@ -35,6 +42,7 @@ function formatEmbedUrl(urlStr: string): string {
       return `https://player.vimeo.com/video/${match[1]}`
     }
   }
+
   return urlStr
 }
 
