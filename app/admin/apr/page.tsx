@@ -15,13 +15,18 @@ interface TemplateItem {
   title: string
   steps: AprStep[]
   tipoServico?: 'Construção' | 'Manutenção' | 'Comercial' | 'Emergência'
-  epis?: Record<string, boolean | string> // <--- Permite booleanos e a string do campo 'outros'
+  epis?: Record<string, boolean | string>
   epcs?: string[]
   anexos?: string[]
   isCustom?: boolean
 }
 
 interface EpcItem {
+  id: string
+  name: string
+}
+
+interface AnexoItem {
   id: string
   name: string
 }
@@ -48,7 +53,7 @@ const DEFAULT_EPCS: string[] = [
 ]
 
 // Lista Padrão de Anexos
-const LISTA_ANEXOS = [
+const DEFAULT_ANEXOS: string[] = [
   'ANEXO A - PT',
   'ANEXO B - LOTO',
   'ANEXO C - TRABALHO EM ALTURA',
@@ -63,7 +68,7 @@ const LISTA_ANEXOS = [
   'ANEXO J - ESCAVAÇÃO'
 ]
 
-// Modelos Padrões de fábrica com inteligência de seleção automática (EPIs, EPCs, Anexos)
+// Modelos Padrões de fábrica com inteligência de seleção automática
 const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
   GERAL: {
     title: 'Serviços Gerais / Carga e Descarga de Materiais',
@@ -246,6 +251,11 @@ export default function GeradorAprPage() {
     'Placas de sinalização de segurança (obrigação, advertência, proibição, emergência)': true,
   })
 
+  // Lista Dinâmica de Anexos
+  const [anexoList, setAnexoList] = useState<AnexoItem[]>(
+    DEFAULT_ANEXOS.map((name, i) => ({ id: `anexo_${i}`, name }))
+  )
+
   // Anexos Selecionados
   const [selectedAnexos, setSelectedAnexos] = useState<Record<string, boolean>>({
     'ANEXO A - PT': true,
@@ -270,10 +280,14 @@ export default function GeradorAprPage() {
   const [isEpcModalOpen, setIsEpcModalOpen] = useState(false)
   const [newEpcName, setNewEpcName] = useState('')
 
+  // Estados do Modal de Novo Anexo
+  const [isAnexoModalOpen, setIsAnexoModalOpen] = useState(false)
+  const [newAnexoName, setNewAnexoName] = useState('')
+
   // Estado do Modal de Confirmação de Exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'TEMPLATE' | 'EPC'
-    keyOrObj: string | EpcItem
+    type: 'TEMPLATE' | 'EPC' | 'ANEXO'
+    keyOrObj: string | EpcItem | AnexoItem
     name: string
   } | null>(null)
 
@@ -308,6 +322,15 @@ export default function GeradorAprPage() {
         setEpcList(JSON.parse(savedEpcs))
       } catch (e) {
         console.error('Erro ao carregar EPCs:', e)
+      }
+    }
+
+    const savedAnexos = localStorage.getItem('apr_all_anexos_v3')
+    if (savedAnexos) {
+      try {
+        setAnexoList(JSON.parse(savedAnexos))
+      } catch (e) {
+        console.error('Erro ao carregar Anexos:', e)
       }
     }
   }, [])
@@ -376,6 +399,15 @@ export default function GeradorAprPage() {
     })
   }
 
+  const requestDeleteAnexo = (e: React.MouseEvent, anexoObj: AnexoItem) => {
+    e.stopPropagation()
+    setDeleteTarget({
+      type: 'ANEXO',
+      keyOrObj: anexoObj,
+      name: anexoObj.name
+    })
+  }
+
   // Confirmação Efetiva da Exclusão
   const handleConfirmDelete = () => {
     if (!deleteTarget) return
@@ -398,6 +430,18 @@ export default function GeradorAprPage() {
       })
 
       localStorage.setItem('apr_all_epcs_v3', JSON.stringify(updatedList))
+    } else if (deleteTarget.type === 'ANEXO') {
+      const anexoObj = deleteTarget.keyOrObj as AnexoItem
+      const updatedList = anexoList.filter((item) => item.id !== anexoObj.id)
+      setAnexoList(updatedList)
+
+      setSelectedAnexos((prev) => {
+        const copy = { ...prev }
+        delete copy[anexoObj.name]
+        return copy
+      })
+
+      localStorage.setItem('apr_all_anexos_v3', JSON.stringify(updatedList))
     }
 
     setDeleteTarget(null)
@@ -463,6 +507,29 @@ export default function GeradorAprPage() {
 
     setNewEpcName('')
     setIsEpcModalOpen(false)
+  }
+
+  // Salvar Novo Anexo
+  const handleSaveNewAnexo = () => {
+    const trimmed = newAnexoName.trim().toUpperCase()
+    if (!trimmed) {
+      alert('Por favor, informe o nome do novo Anexo.')
+      return
+    }
+
+    const newAnexoObj: AnexoItem = {
+      id: `anexo_${Date.now()}`,
+      name: trimmed
+    }
+
+    const updatedList = [...anexoList, newAnexoObj]
+    setAnexoList(updatedList)
+
+    setSelectedAnexos((prev) => ({ ...prev, [trimmed]: true }))
+    localStorage.setItem('apr_all_anexos_v3', JSON.stringify(updatedList))
+
+    setNewAnexoName('')
+    setIsAnexoModalOpen(false)
   }
 
   const handleAddStep = () => {
@@ -718,35 +785,35 @@ export default function GeradorAprPage() {
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.capacete} onChange={(e) => setEpis({ ...epis, capacete: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.capacete} onChange={(e) => setEpis({ ...epis, capacete: e.target.checked })} />
                 Capacete com Jugular
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.oculos} onChange={(e) => setEpis({ ...epis, oculos: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.oculos} onChange={(e) => setEpis({ ...epis, oculos: e.target.checked })} />
                 Óculos de Segurança
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.calcado} onChange={(e) => setEpis({ ...epis, calcado: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.calcado} onChange={(e) => setEpis({ ...epis, calcado: e.target.checked })} />
                 Calçado de Segurança
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.luvas} onChange={(e) => setEpis({ ...epis, luvas: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.luvas} onChange={(e) => setEpis({ ...epis, luvas: e.target.checked })} />
                 Luvas (Látex/Anti-corte)
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.mascara} onChange={(e) => setEpis({ ...epis, mascara: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.mascara} onChange={(e) => setEpis({ ...epis, mascara: e.target.checked })} />
                 Máscara Filtro PFF2
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.colete} onChange={(e) => setEpis({ ...epis, colete: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.colete} onChange={(e) => setEpis({ ...epis, colete: e.target.checked })} />
                 Colete Refletivo
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.protetorAuditivo} onChange={(e) => setEpis({ ...epis, protetorAuditivo: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.protetorAuditivo} onChange={(e) => setEpis({ ...epis, protetorAuditivo: e.target.checked })} />
                 Protetor Auditivo
               </label>
               <label className="flex items-center gap-2 cursor-pointer font-medium">
-                <input type="checkbox" checked={epis.cintoParaquedista} onChange={(e) => setEpis({ ...epis, cintoParaquedista: e.target.checked })} />
+                <input type="checkbox" checked={!!epis.cintoParaquedista} onChange={(e) => setEpis({ ...epis, cintoParaquedista: e.target.checked })} />
                 Cinto Paraquedista (NR-35)
               </label>
             </div>
@@ -755,7 +822,7 @@ export default function GeradorAprPage() {
               <input
                 type="text"
                 placeholder="Outros EPIs / Equipamentos específicos..."
-                value={epis.outros}
+                value={epis.outros as string}
                 onChange={(e) => setEpis({ ...epis, outros: e.target.value })}
                 className="w-full p-2 border border-gray-300 rounded-lg text-xs font-medium"
               />
@@ -801,21 +868,40 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* 3. Seleção de Anexos do Documento */}
+        {/* 3. Seleção de Anexos do Documento com Adicionar e Excluir */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
-          <h2 className="text-sm font-bold uppercase text-gray-900 border-b pb-2">
-            3. Anexos Obrigatórios Vinculados à APR
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 text-xs">
-            {LISTA_ANEXOS.map((anexoItem) => (
-              <label key={anexoItem} className="flex items-center gap-2 cursor-pointer font-bold p-1.5 rounded hover:bg-amber-50/50 border border-gray-100">
-                <input
-                  type="checkbox"
-                  checked={!!selectedAnexos[anexoItem]}
-                  onChange={() => toggleAnexo(anexoItem)}
-                />
-                <span>{anexoItem}</span>
-              </label>
+          <div className="flex items-center justify-between border-b pb-2">
+            <h2 className="text-sm font-bold uppercase text-gray-900">
+              3. Anexos Obrigatórios Vinculados à APR
+            </h2>
+            <button
+              onClick={() => setIsAnexoModalOpen(true)}
+              className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-black text-[11px] font-extrabold uppercase rounded-lg transition-all cursor-pointer shadow-sm flex items-center gap-1"
+            >
+              ➕ Cadastrar Novo Anexo
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 text-xs">
+            {anexoList.map((anexoObj) => (
+              <div key={anexoObj.id} className="flex items-center justify-between p-1.5 rounded hover:bg-amber-50/50 border border-gray-100">
+                <label className="flex items-center gap-2 cursor-pointer font-bold flex-1">
+                  <input
+                    type="checkbox"
+                    checked={!!selectedAnexos[anexoObj.name]}
+                    onChange={() => toggleAnexo(anexoObj.name)}
+                  />
+                  <span>{anexoObj.name}</span>
+                </label>
+
+                <button
+                  onClick={(e) => requestDeleteAnexo(e, anexoObj)}
+                  title="Excluir este Anexo"
+                  className="text-red-500 hover:text-red-700 font-bold px-1.5 text-xs hover:bg-red-50 rounded cursor-pointer ml-1"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -1089,6 +1175,60 @@ export default function GeradorAprPage() {
         </div>
       )}
 
+      {/* MODAL PARA CADASTRAR NOVO ANEXO */}
+      {isAnexoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-gray-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-black uppercase text-gray-900">
+                  ➕ Cadastrar Novo Anexo
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Adicione um Anexo Obrigatório ou Documento Vinculado à lista.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAnexoModalOpen(false)}
+                className="text-gray-400 hover:text-black font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-black text-gray-900 uppercase block mb-1">
+                  Nome / Identificação do Anexo:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: ANEXO K - PERMISSÃO PARA TRABALHO EM ESPAÇO RESTRITO"
+                  value={newAnexoName}
+                  onChange={(e) => setNewAnexoName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-xl font-bold uppercase text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <button
+                onClick={() => setIsAnexoModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 text-xs font-bold uppercase rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveNewAnexo}
+                className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-black uppercase rounded-xl shadow-md"
+              >
+                💾 Salvar e Selecionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE SEGURANÇA */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
@@ -1227,17 +1367,17 @@ export default function GeradorAprPage() {
             </div>
           </div>
 
-          {/* ANEXOS VINCULADOS */}
+          {/* ANEXOS VINCULADOS DADOS DINÂMICOS */}
           <div className="border-t border-gray-300 pt-1.5">
             <strong className="block uppercase border-b border-gray-400 pb-0.5 mb-1">
               DOCUMENTOS E ANEXOS COMPLEMENTARES VINCULADOS:
             </strong>
             <div className="grid grid-cols-3 gap-1 font-bold text-[8.5px]">
-              {LISTA_ANEXOS.map((anexoItem) => {
-                const isChecked = !!selectedAnexos[anexoItem]
+              {anexoList.map((anexoObj) => {
+                const isChecked = !!selectedAnexos[anexoObj.name]
                 return (
-                  <p key={anexoItem} className={isChecked ? 'text-black font-black' : 'text-gray-400'}>
-                    [{isChecked ? 'X' : '  '}] {anexoItem}
+                  <p key={anexoObj.id} className={isChecked ? 'text-black font-black' : 'text-gray-400'}>
+                    [{isChecked ? 'X' : '  '}] {anexoObj.name}
                   </p>
                 )
               })}
