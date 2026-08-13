@@ -97,7 +97,7 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
       {
         servico: '2. Passagem de cabos, conexões e montagem de quadros',
         comoFazer: 'Executar passagem de condutores por eletrodutos e fixação em quadros utilizando ferramentas manuais isoladas (1000V).',
-        riscos: 'Cortes nas mãos; postura inadequada; prensamento; esforço repetitivo.',
+        riscos: 'Cortes nas mãos; postura inadequada; prensamento; effort repetitivo.',
         medidas: 'Usar ferramentas com isolamento certificado de 1000V. Utilizar luvas de proteção mecânica/mista.'
       },
       {
@@ -372,7 +372,7 @@ export default function GeradorAprPage() {
       {/* PAINEL DE CONTROLE E EDIÇÃO (OCULTO NA IMPRESSÃO) */}
       <div className="max-w-6xl mx-auto p-4 sm:p-6 print:hidden space-y-6">
         
-        {/* CABEÇALHO DA INTERFACE — RETÂNGULO W-40 H-12 COM GAP-6 E PL-2 */}
+        {/* CABEÇALHO DA INTERFACE */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-2 px-1">
           <div className="flex items-center gap-6">
             <div className="relative w-40 h-12 shrink-0">
@@ -874,7 +874,7 @@ export default function GeradorAprPage() {
             
             {/* GRUPO ESQUERDO: LOGO + CAIXA DE TÍTULO APR */}
             <div className="flex items-center gap-4">
-              <div className="relative w-36 h-12 shrink-0">
+              <div className="relative w-24 h-24 shrink-0">
                 <Image
                   src="/img/login/logo_construtora.png"
                   alt="Quattro Construtora"
@@ -885,7 +885,7 @@ export default function GeradorAprPage() {
                 />
               </div>
 
-              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3.5 py-1.5 border border-black whitespace-nowrap">
+              <h2 className="text-base font-black uppercase tracking-wider bg-gray-200 px-3 py-1 border border-black whitespace-nowrap">
                 ANÁLISE PRELIMINAR DE RISCO — APR
               </h2>
             </div>
@@ -986,7 +986,7 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* TABELA DE PASSOS DA APR */}
+        {/* TABELA DE PASSOS DA APR (LINHA A LINHA, SEM QUEBRAR LINHAS AO MEIO) */}
         <div className="border-x-2 border-b-2 border-black">
           <table className="w-full text-left border-collapse text-[9px]">
             <thead>
@@ -1010,7 +1010,7 @@ export default function GeradorAprPage() {
           </table>
         </div>
 
-        {/* TABELA DE ASSINATURA DOS COLABORADORES */}
+        {/* TABELA DE ASSINATURA DOS COLABORADORES (CONTINUIDADE NATURAL DAS LINHAS DA TABELA) */}
         <div className="border-x-2 border-b-2 border-black p-2 space-y-1">
           <p className="text-[9px] font-black uppercase text-center border-b border-black pb-1">
             DECLARAÇÃO E ASSINATURA DOS COLABORADORES (ORIENTADOS SOBRE OS RISCOS DA APR)
@@ -1038,8 +1038,8 @@ export default function GeradorAprPage() {
           </table>
         </div>
 
-        {/* RODAPÉ COM LIBERAÇÃO E TST */}
-        <div className="border-x-2 border-b-2 border-black p-2.5 text-[8.5px] flex items-center justify-between bg-gray-50 gap-4">
+        {/* RODAPÉ COM LIBERAÇÃO E TST (SE PRECISAR, PULA INTEIRO PARA A PRÓXIMA PÁGINA) */}
+        <div className="border-x-2 border-b-2 border-black p-2.5 text-[8.5px] flex items-center justify-between bg-gray-50 gap-4 print-avoid-break">
           <div className="flex-1 pr-2">
             <strong>Observações Gerais:</strong> {observacoes}
           </div>

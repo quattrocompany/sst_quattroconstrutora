@@ -44,20 +44,27 @@ body {
   *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* 3. Oculta a interface da tela para isolar o documento impresso */
+  /* 3. MARGEM CLEAN DE 10mm AO REDOR DA FOLHA IMPRESSA (A4) */
+  @page {
+    size: A4 portrait;
+    margin: 10mm !important;
+  }
+
+  /* 4. Oculta a interface da tela para isolar o documento impresso */
   body * {
     visibility: hidden !important;
   }
 
-  /* 4. Libera visibilidade para o Passaporte SST e para a APR */
+  /* 5. Libera visibilidade para o Passaporte SST e para a APR */
   #printable-passport,
   #printable-passport *,
   #printable-apr,
@@ -65,7 +72,7 @@ body {
     visibility: visible !important;
   }
 
-  /* 5. Configuração do Passaporte SST (Cartão de Banco Centralizado) */
+  /* 6. Configuração do Passaporte SST (Cartão de Banco Centralizado) */
   #printable-passport {
     position: absolute !important;
     left: 50% !important;
@@ -76,7 +83,7 @@ body {
     box-shadow: none !important;
   }
 
-  /* 6. Configuração da APR (Documento A4 Oficial - Fluído para Multi-páginas) */
+  /* 7. Configuração da APR (Documento A4 Fluído para Fluxo Contínuo) */
   #printable-apr {
     position: static !important;
     width: 100% !important;
@@ -87,7 +94,7 @@ body {
     display: block !important;
   }
 
-  /* 7. Controle fino de quebra de páginas para tabelas e blocos da APR */
+  /* 8. PERMITE CONTINUIDADE DA TABELA, PROIBINDO APENAS O CORTE DE CADA LINHA (TR) NO MEIO */
   #printable-apr table {
     page-break-inside: auto !important;
     break-inside: auto !important;
@@ -97,13 +104,19 @@ body {
     display: table-header-group !important;
   }
 
+  #printable-apr tbody {
+    display: table-row-group !important;
+  }
+
+  /* Garante que a linha inteira vá para a próxima página se não couber */
   #printable-apr tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  @page {
-    size: A4 portrait;
-    margin: 8mm;
+  /* Protege apenas o bloco de assinatura final (TST/Liberação) contra cortes */
+  #printable-apr .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
