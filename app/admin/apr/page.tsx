@@ -17,8 +17,14 @@ interface TemplateItem {
   isCustom?: boolean
 }
 
-// Lista fixa de EPCs
-const LISTA_EPCS = [
+interface EpcItem {
+  id: string
+  name: string
+  isCustom?: boolean
+}
+
+// Lista Padrão de EPCs
+const DEFAULT_EPCS: string[] = [
   'Fechamento/proteção de aberturas no piso e lajes',
   'Linha de vida e pontos/sistemas de ancoragem (proteção coletiva)',
   'Cones, balizadores, cavaletes e barreiras de sinalização',
@@ -38,7 +44,7 @@ const LISTA_EPCS = [
   'Lava-olhos de emergência portátil'
 ]
 
-// Lista fixa de Anexos
+// Lista Padrão de Anexos
 const LISTA_ANEXOS = [
   'ANEXO A - PT',
   'ANEXO B - LOTO',
@@ -97,7 +103,7 @@ const DEFAULT_TEMPLATES: Record<string, TemplateItem> = {
       {
         servico: '2. Passagem de cabos, conexões e montagem de quadros',
         comoFazer: 'Executar passagem de condutores por eletrodutos e fixação em quadros utilizando ferramentas manuais isoladas (1000V).',
-        riscos: 'Cortes nas mãos; postura inadequada; prensamento; effort repetitivo.',
+        riscos: 'Cortes nas mãos; postura inadequada; prensamento; esforço repetitivo.',
         medidas: 'Usar ferramentas com isolamento certificado de 1000V. Utilizar luvas de proteção mecânica/mista.'
       },
       {
@@ -187,6 +193,11 @@ export default function GeradorAprPage() {
     outros: '',
   })
 
+  // Lista Dinâmica de EPCs (Padrão + Customizados)
+  const [epcList, setEpcList] = useState<EpcItem[]>(
+    DEFAULT_EPCS.map((name, i) => ({ id: `default_${i}`, name, isCustom: false }))
+  )
+
   // EPCs Selecionados
   const [selectedEpcs, setSelectedEpcs] = useState<Record<string, boolean>>({
     'Cones, balizadores, cavaletes e barreiras de sinalização': true,
@@ -202,7 +213,7 @@ export default function GeradorAprPage() {
   // Passos em edição
   const [passos, setPassos] = useState<AprStep[]>(DEFAULT_TEMPLATES.GERAL.steps)
 
-  // Estados do Modal
+  // Estados do Modal de Atividade Customizada
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newActivityTitle, setNewActivityTitle] = useState('')
   const [newActivitySteps, setNewActivityTitleSteps] = useState<AprStep[]>([
@@ -214,7 +225,18 @@ export default function GeradorAprPage() {
     }
   ])
 
-  // CARREGAR DADOS SALVOS DA EMPRESA E MODELOS CUSTOMIZADOS
+  // Estados do Modal de Novo EPC
+  const [isEpcModalOpen, setIsEpcModalOpen] = useState(false)
+  const [newEpcName, setNewEpcName] = useState('')
+
+  // Estado do Modal de Confirmação de Exclusão
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'TEMPLATE' | 'EPC'
+    keyOrObj: string | EpcItem
+    name: string
+  } | null>(null)
+
+  // CARREGAR DADOS SALVOS NO LOCALSTORAGE
   useEffect(() => {
     const savedTemplates = localStorage.getItem('apr_custom_templates_v2')
     if (savedTemplates) {
@@ -239,6 +261,16 @@ export default function GeradorAprPage() {
         console.error('Erro ao carregar dados salvos da empresa:', e)
       }
     }
+
+    const savedCustomEpcs = localStorage.getItem('apr_custom_epcs_v1')
+    if (savedCustomEpcs) {
+      try {
+        const parsedEpcs: EpcItem[] = JSON.parse(savedCustomEpcs)
+        setEpcList((prev) => [...prev, ...parsedEpcs])
+      } catch (e) {
+        console.error('Erro ao carregar EPCs customizados:', e)
+      }
+    }
   }, [])
 
   // SALVAR AUTOMATICAMENTE OS DADOS DA EMPRESA A CADA ALTERAÇÃO
@@ -253,6 +285,7 @@ export default function GeradorAprPage() {
     localStorage.setItem('apr_last_used_company_data', JSON.stringify(dataToSave))
   }, [empresa, cnpj, obraNome, localSetor, responsavelTst])
 
+  // Selecionar Modelo
   const handleSelectPreset = (key: string) => {
     if (templates[key]) {
       setPassos(templates[key].steps)
@@ -260,9 +293,31 @@ export default function GeradorAprPage() {
     }
   }
 
-  const handleDeleteTemplate = (e: React.MouseEvent, key: string) => {
+  // Solicitadores de Exclusão (Abrem Modal de Confirmação)
+  const requestDeleteTemplate = (e: React.MouseEvent, key: string) => {
     e.stopPropagation()
-    if (confirm(`Deseja realmente excluir o modelo "${templates[key].title}"?`)) {
+    setDeleteTarget({
+      type: 'TEMPLATE',
+      keyOrObj: key,
+      name: templates[key].title
+    })
+  }
+
+  const requestDeleteEpc = (e: React.MouseEvent, epcObj: EpcItem) => {
+    e.stopPropagation()
+    setDeleteTarget({
+      type: 'EPC',
+      keyOrObj: epcObj,
+      name: epcObj.name
+    })
+  }
+
+  // Confirmação Efetiva da Exclusão
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return
+
+    if (deleteTarget.type === 'TEMPLATE') {
+      const key = deleteTarget.keyOrObj as string
       const updated = { ...templates }
       delete updated[key]
       setTemplates(updated)
@@ -271,9 +326,25 @@ export default function GeradorAprPage() {
         Object.entries(updated).filter(([_, v]) => v.isCustom)
       )
       localStorage.setItem('apr_custom_templates_v2', JSON.stringify(customOnly))
+    } else if (deleteTarget.type === 'EPC') {
+      const epcObj = deleteTarget.keyOrObj as EpcItem
+      const updatedList = epcList.filter((item) => item.id !== epcObj.id)
+      setEpcList(updatedList)
+
+      setSelectedEpcs((prev) => {
+        const copy = { ...prev }
+        delete copy[epcObj.name]
+        return copy
+      })
+
+      const customOnly = updatedList.filter((item) => item.isCustom)
+      localStorage.setItem('apr_custom_epcs_v1', JSON.stringify(customOnly))
     }
+
+    setDeleteTarget(null)
   }
 
+  // Salvar Nova Atividade
   const handleSaveNewActivity = () => {
     if (!newActivityTitle.trim()) {
       alert('Por favor, informe o título da nova atividade.')
@@ -308,6 +379,32 @@ export default function GeradorAprPage() {
       }
     ])
     setIsModalOpen(false)
+  }
+
+  // Salvar Novo EPC
+  const handleSaveNewEpc = () => {
+    const trimmed = newEpcName.trim()
+    if (!trimmed) {
+      alert('Por favor, informe a descrição do novo EPC.')
+      return
+    }
+
+    const newEpcObj: EpcItem = {
+      id: `custom_${Date.now()}`,
+      name: trimmed,
+      isCustom: true,
+    }
+
+    const updatedList = [...epcList, newEpcObj]
+    setEpcList(updatedList)
+
+    setSelectedEpcs((prev) => ({ ...prev, [trimmed]: true }))
+
+    const customOnly = updatedList.filter((item) => item.isCustom)
+    localStorage.setItem('apr_custom_epcs_v1', JSON.stringify(customOnly))
+
+    setNewEpcName('')
+    setIsEpcModalOpen(false)
   }
 
   const handleAddStep = () => {
@@ -354,12 +451,12 @@ export default function GeradorAprPage() {
     setNewActivityTitleSteps(updated)
   }
 
-  const toggleEpc = (epc: string) => {
-    setSelectedEpcs((prev) => ({ ...prev, [epc]: !prev[epc] }))
+  const toggleEpc = (epcName: string) => {
+    setSelectedEpcs((prev) => ({ ...prev, [epcName]: !prev[epcName] }))
   }
 
-  const toggleAnexo = (anexo: string) => {
-    setSelectedAnexos((prev) => ({ ...prev, [anexo]: !prev[anexo] }))
+  const toggleAnexo = (anexoName: string) => {
+    setSelectedAnexos((prev) => ({ ...prev, [anexoName]: !prev[anexoName] }))
   }
 
   const handlePrint = () => {
@@ -441,7 +538,7 @@ export default function GeradorAprPage() {
 
                   {item.isCustom && (
                     <button
-                      onClick={(e) => handleDeleteTemplate(e, key)}
+                      onClick={(e) => requestDeleteTemplate(e, key)}
                       title="Excluir este modelo"
                       className="text-red-500 hover:text-red-700 font-black px-1.5 py-0.5 text-xs hover:bg-red-50 rounded cursor-pointer"
                     >
@@ -454,7 +551,7 @@ export default function GeradorAprPage() {
           </div>
         </div>
 
-        {/* Dados da Empresa e Obra */}
+        {/* 1. Dados da Empresa e Obra */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
             <h2 className="text-sm font-bold uppercase text-gray-900">
@@ -610,20 +707,41 @@ export default function GeradorAprPage() {
           </div>
 
           <div className="border-t pt-4">
-            <label className="font-bold text-xs uppercase text-amber-800 block mb-2">
-              EPC — Equipamentos de Proteção Coletiva Aplicáveis:
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-bold text-xs uppercase text-amber-800 block">
+                EPC — Equipamentos de Proteção Coletiva Aplicáveis:
+              </label>
+              <button
+                onClick={() => setIsEpcModalOpen(true)}
+                className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-black text-[11px] font-extrabold uppercase rounded-lg transition-all cursor-pointer shadow-sm flex items-center gap-1"
+              >
+                ➕ Cadastrar Novo EPC
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {LISTA_EPCS.map((epcItem) => (
-                <label key={epcItem} className="flex items-start gap-2 cursor-pointer font-medium p-1.5 rounded hover:bg-gray-50">
-                  <input
-                    type="checkbox"
-                    checked={!!selectedEpcs[epcItem]}
-                    onChange={() => toggleEpc(epcItem)}
-                    className="mt-0.5"
-                  />
-                  <span>{epcItem}</span>
-                </label>
+              {epcList.map((epcObj) => (
+                <div key={epcObj.id} className="flex items-center justify-between p-1.5 rounded hover:bg-gray-50 border border-transparent hover:border-gray-200">
+                  <label className="flex items-start gap-2 cursor-pointer font-medium flex-1">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedEpcs[epcObj.name]}
+                      onChange={() => toggleEpc(epcObj.name)}
+                      className="mt-0.5"
+                    />
+                    <span>{epcObj.name}</span>
+                  </label>
+
+                  {epcObj.isCustom && (
+                    <button
+                      onClick={(e) => requestDeleteEpc(e, epcObj)}
+                      title="Excluir este EPC"
+                      className="text-red-500 hover:text-red-700 font-bold px-1.5 text-xs hover:bg-red-50 rounded cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -863,6 +981,97 @@ export default function GeradorAprPage() {
         </div>
       )}
 
+      {/* MODAL PARA CADASTRAR NOVO EPC */}
+      {isEpcModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-gray-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-black uppercase text-gray-900">
+                  ➕ Cadastrar Novo EPC
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Adicione um Equipamento de Proteção Coletiva à lista.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsEpcModalOpen(false)}
+                className="text-gray-400 hover:text-black font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-black text-gray-900 uppercase block mb-1">
+                  Nome do EPC:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Rede de proteção de periféricos, Linha Guia..."
+                  value={newEpcName}
+                  onChange={(e) => setNewEpcName(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-xl font-bold text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <button
+                onClick={() => setIsEpcModalOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 text-xs font-bold uppercase rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveNewEpc}
+                className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black text-xs font-black uppercase rounded-xl shadow-md"
+              >
+                💾 Salvar e Selecionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE SEGURANÇA */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto print:hidden">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-3 text-red-600 border-b pb-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h3 className="text-base font-black uppercase text-gray-900">
+                  ATENÇÃO: DESEJA REMOVER O ÍTEM DO SISTEMA?
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-700 font-medium leading-relaxed">
+              <strong className="block text-gray-900 font-bold uppercase mt-1 bg-red-50 p-3 rounded-xl border border-red-200 text-center">
+                {deleteTarget.name}
+              </strong>
+            </p>
+
+            <div className="flex justify-end gap-3 border-t pt-4">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-extrabold uppercase rounded-xl transition-colors cursor-pointer"
+              >
+                NÃO
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                SIM
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DOCUMENTO OFICIAL A4 PARA IMPRESSÃO E PRANCHETA */}
       <div
         id="printable-apr"
@@ -953,11 +1162,11 @@ export default function GeradorAprPage() {
               EPC — Equipamentos de Proteção Coletiva Aplicáveis:
             </strong>
             <div className="grid grid-cols-2 gap-1 font-medium text-[8.5px]">
-              {LISTA_EPCS.map((epcItem) => {
-                const isChecked = !!selectedEpcs[epcItem]
+              {epcList.map((epcObj) => {
+                const isChecked = !!selectedEpcs[epcObj.name]
                 return (
-                  <p key={epcItem} className={isChecked ? 'font-bold text-black' : 'text-gray-400'}>
-                    [{isChecked ? 'X' : '  '}] {epcItem}
+                  <p key={epcObj.id} className={isChecked ? 'font-bold text-black' : 'text-gray-400'}>
+                    [{isChecked ? 'X' : '  '}] {epcObj.name}
                   </p>
                 )
               })}
@@ -1010,7 +1219,7 @@ export default function GeradorAprPage() {
           </table>
         </div>
 
-        {/* TABELA DE ASSINATURA DOS COLABORADORES (CONTINUIDADE NATURAL DAS LINHAS DA TABELA) */}
+        {/* TABELA DE ASSINATURA DOS COLABORADORES */}
         <div className="border-x-2 border-b-2 border-black p-2 space-y-1">
           <p className="text-[9px] font-black uppercase text-center border-b border-black pb-1">
             DECLARAÇÃO E ASSINATURA DOS COLABORADORES (ORIENTADOS SOBRE OS RISCOS DA APR)
