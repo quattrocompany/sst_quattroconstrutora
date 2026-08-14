@@ -29,6 +29,7 @@ interface WorkerItem {
   exempt_docs?: string[]
   subcontractor_id: string
   company_name: string
+  work_site?: string
 }
 
 interface DocumentItem {
@@ -41,6 +42,7 @@ interface DocumentItem {
   expiry_date: string | null
   worker_id: string | null
   subcontractor_id: string | null
+  work_site?: string
   created_at: string
 }
 
@@ -80,6 +82,7 @@ export default function AdminGerenciarPage() {
           company_name: subMap.get(w.subcontractor_id) || 'Quattro Construtora',
           exempt_docs: w.exempt_docs || [],
           job_role: w.job_role || 'Operacional',
+          work_site: w.work_site || '',
         }))
         setWorkers(formattedWorkers)
       }
@@ -317,7 +320,7 @@ export default function AdminGerenciarPage() {
                           Empresa: <strong className="text-gray-800">{worker.company_name}</strong> | CPF: {worker.cpf}
                         </p>
                         <p className="text-[11px] text-gray-400">
-                          Função: <strong className="text-gray-700">{worker.job_role || 'Operacional'}</strong>
+                          Função: <strong className="text-gray-700">{worker.job_role || 'Operacional'}</strong> | Obra: <strong className="text-gray-700">{worker.work_site || 'Todas'}</strong>
                         </p>
                       </div>
 
@@ -377,7 +380,7 @@ export default function AdminGerenciarPage() {
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-gray-900 uppercase">{d.title}</p>
                       <p className="text-[11px] text-gray-500">
-                        Tipo: <strong className="text-gray-700">{d.document_type || 'OUTROS'}</strong> | Categoria: {d.category} | Emissão: {d.issue_date || 'N/I'} | Validade: {d.expiry_date || 'Indeterminado'}
+                        Tipo: <strong className="text-gray-700">{d.document_type || 'OUTROS'}</strong> | Cat: {d.category} | Obra: {d.work_site || 'N/I'} | Emissão: {d.issue_date || 'N/I'}
                       </p>
                     </div>
 
@@ -420,7 +423,7 @@ export default function AdminGerenciarPage() {
                   {selectedWorkerForHomolog.full_name}
                 </h3>
                 <p className="text-xs text-gray-300">
-                  Empresa: <strong className="text-white">{selectedWorkerForHomolog.company_name}</strong> | CPF: {selectedWorkerForHomolog.cpf}
+                  Empresa: <strong className="text-white">{selectedWorkerForHomolog.company_name}</strong> | Obra: {selectedWorkerForHomolog.work_site || 'Todas'}
                 </p>
               </div>
 

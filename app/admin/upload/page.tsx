@@ -33,6 +33,7 @@ interface DocumentFormData {
   worker_name: string
   worker_cpf: string
   subcontractor_name: string
+  work_site: string
   issue_date: string
   expiry_date: string
   status: 'APTO' | 'PENDENTE' | 'INAPTO'
@@ -117,6 +118,7 @@ export default function AdminUploadPage() {
                   worker_name: data.worker_name || '',
                   worker_cpf: data.worker_cpf || '',
                   subcontractor_name: data.subcontractor_name || '',
+                  work_site: data.work_site || '',
                   issue_date: data.issue_date || '',
                   expiry_date: data.expiry_date || '',
                   status: (data.status as any) || 'APTO',
@@ -159,6 +161,7 @@ export default function AdminUploadPage() {
         worker_name: '',
         worker_cpf: '',
         subcontractor_name: '',
+        work_site: '',
         issue_date: '',
         expiry_date: '',
         status: 'APTO',
@@ -218,6 +221,7 @@ export default function AdminUploadPage() {
 
       if (storageError) throw new Error(`Storage: ${storageError.message}`)
 
+      // Apenas busca empresa existente (NÃO cria empresas automaticamente no cadastro)
       let subcontractorId: string | null = null
       if (item.formData.subcontractor_name) {
         const { data: existingSub } = await supabase
@@ -228,20 +232,11 @@ export default function AdminUploadPage() {
 
         if (existingSub) {
           subcontractorId = existingSub.id
-        } else {
-          const { data: newSub, error: subError } = await supabase
-            .from('subcontractors')
-            .insert({ name: item.formData.subcontractor_name.toUpperCase() })
-            .select('id')
-            .single()
-
-          if (subError) throw subError
-          subcontractorId = newSub.id
         }
       }
 
       let workerId: string | null = null
-      if (item.formData.worker_name && subcontractorId) {
+      if (item.formData.worker_name) {
         const { data: existingWorker } = await supabase
           .from('workers')
           .select('id')
@@ -250,7 +245,12 @@ export default function AdminUploadPage() {
 
         if (existingWorker) {
           workerId = existingWorker.id
-        } else {
+          
+          if (item.formData.work_site) {
+             await supabase.from('workers').update({ work_site: item.formData.work_site.toUpperCase() }).eq('id', workerId)
+          }
+
+        } else if (subcontractorId) {
           const { data: newWorker, error: workerError } = await supabase
             .from('workers')
             .insert({
@@ -258,6 +258,7 @@ export default function AdminUploadPage() {
               cpf: item.formData.worker_cpf || '00000000000',
               subcontractor_id: subcontractorId,
               status: item.formData.status as any,
+              work_site: item.formData.work_site.toUpperCase(),
               exempt_docs: [],
             })
             .select('id')
@@ -278,6 +279,7 @@ export default function AdminUploadPage() {
         expiry_date: item.formData.expiry_date || null,
         worker_id: workerId,
         subcontractor_id: subcontractorId,
+        work_site: item.formData.work_site.toUpperCase() || null,
       })
 
       if (docError) throw docError
@@ -486,8 +488,8 @@ export default function AdminUploadPage() {
                   )}
 
                   {item.status !== 'analyzing' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           Título do Documento
                         </label>
@@ -500,9 +502,9 @@ export default function AdminUploadPage() {
                       </div>
 
                       {/* DROPDOWN DOS 12 DOCUMENTOS PADRONIZADOS */}
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Tipo de Documento Regulatório *
+                          Tipo de Documento *
                         </label>
                         <select
                           value={item.formData.document_type}
@@ -517,7 +519,7 @@ export default function AdminUploadPage() {
                         </select>
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           Colaborador
                         </label>
@@ -529,7 +531,7 @@ export default function AdminUploadPage() {
                         />
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           CPF
                         </label>
@@ -541,16 +543,16 @@ export default function AdminUploadPage() {
                         />
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-                          Empresa / Obra Pertencente *
+                          Empresa
                         </label>
                         <select
                           value={item.formData.subcontractor_name}
                           onChange={(e) => handleFieldChange(item.id, 'subcontractor_name', e.target.value)}
                           className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
                         >
-                          <option value="">Selecione a Empresa...</option>
+                          <option value="">Selecione...</option>
                           {companies.map((c) => (
                             <option key={c.id} value={c.name}>
                               {c.name}
@@ -559,7 +561,19 @@ export default function AdminUploadPage() {
                         </select>
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                          Obra / Unidade
+                        </label>
+                        <input
+                          type="text"
+                          value={item.formData.work_site}
+                          onChange={(e) => handleFieldChange(item.id, 'work_site', e.target.value)}
+                          className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white uppercase"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           Categoria no Portal
                         </label>
@@ -568,13 +582,13 @@ export default function AdminUploadPage() {
                           onChange={(e) => handleFieldChange(item.id, 'category', e.target.value)}
                           className="w-full px-3 py-1.5 bg-[#F9F9F9] border border-gray-300 rounded-lg font-bold focus:outline-none focus:bg-white"
                         >
-                          <option value="PASSAPORTE">PASSAPORTE DE SEGURANÇA</option>
-                          <option value="SUBCONTRATADAS">SUBCONTRATADAS</option>
-                          <option value="OBRAS">OBRAS</option>
+                          <option value="PASSAPORTE">PASSAPORTE DE SEG. (Trabalhador)</option>
+                          <option value="SUBCONTRATADAS">SUBCONTRATADAS (Empresa)</option>
+                          <option value="OBRAS">OBRAS (Canteiro)</option>
                         </select>
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           Emissão
                         </label>
@@ -586,7 +600,7 @@ export default function AdminUploadPage() {
                         />
                       </div>
 
-                      <div>
+                      <div className="md:col-span-2 lg:col-span-1">
                         <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
                           Validade
                         </label>

@@ -50,6 +50,7 @@ interface DocumentItem {
   worker_cpf: string
   worker_status: 'APTO' | 'PENDENTE' | 'INAPTO'
   company_name: string
+  work_site: string
   created_at?: string
 }
 
@@ -58,6 +59,7 @@ interface WorkerCardItem {
   name: string
   cpf: string
   company_name: string
+  work_site: string
   status: 'APTO' | 'INAPTO'
   hasExpiringSoon: boolean
 }
@@ -68,6 +70,7 @@ interface TrainingMediaItem {
   section: 'TREINAMENTOS' | 'EMERGENCIA'
   media_type: 'IMAGE' | 'VIDEO_FILE' | 'EMBED'
   url: string
+  work_site: string
 }
 
 interface WorkerPassport {
@@ -85,9 +88,8 @@ interface WorkerPassport {
 function formatEmbedUrl(urlStr: string): string {
   if (!urlStr) return ''
 
-  // YouTube
   if (urlStr.includes('youtube.com') || urlStr.includes('youtu.be')) {
-    if (urlStr.includes('youtube.com/embed/')) return urlStr // Já é embed válido
+    if (urlStr.includes('youtube.com/embed/')) return urlStr 
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/
     const match = urlStr.match(regExp)
     if (match && match[2] && match[2].length === 11) {
@@ -95,7 +97,6 @@ function formatEmbedUrl(urlStr: string): string {
     }
   }
 
-  // Vimeo
   if (urlStr.includes('vimeo.com')) {
     const regExp = /vimeo\.com\/(\d+)/
     const match = urlStr.match(regExp)
@@ -119,6 +120,11 @@ export default function ClienteDashboard() {
   const [selectedSubcontractor, setSelectedSubcontractor] = useState<string>('TODAS')
   const [selectedObraSubCategory, setSelectedObraSubCategory] = useState<ObraSubCategory>('Boas Práticas')
   const [selectedAptitudeFilter, setSelectedAptitudeFilter] = useState<AptitudeFilter>('ALL')
+  
+  // FILTRO GLOBAL DE OBRA
+  const [globalWorksite, setGlobalWorksite] = useState<string>('TODAS')
+  const [availableWorksites, setAvailableWorksites] = useState<string[]>([])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [workersList, setWorkersList] = useState<any[]>([])
@@ -225,9 +231,9 @@ export default function ClienteDashboard() {
         window.requestAnimationFrame(() => {
           const scrollY = window.scrollY
           if (scrollY > 35) {
-            setIsScrolled((prev) => (prev ? prev : true))
+            setIsScrolled(true)
           } else if (scrollY < 10) {
-            setIsScrolled((prev) => (!prev ? prev : false))
+            setIsScrolled(false)
           }
           ticking = false
         })
@@ -244,7 +250,7 @@ export default function ClienteDashboard() {
       setLoading(true)
 
       try {
-        const { data: subs } = await supabase.from('subcontractors').select('id, name, logo_url')
+        const { data: subs } = await supabase.from('subcontractors').select('id, name, logo_url, worksites')
         if (subs) {
           const names = Array.from(new Set(subs.map((s) => s.name.toUpperCase())))
           setSubcontractorsList(['TODAS', ...names])
@@ -290,6 +296,7 @@ export default function ClienteDashboard() {
             worker_cpf: worker?.cpf || 'Não cadastrado',
             worker_status: 'INAPTO',
             company_name: subcontractor?.name || 'Quattro Construtora',
+            work_site: item.work_site || worker?.work_site || '',
             created_at: item.created_at,
           }
         })
@@ -306,9 +313,20 @@ export default function ClienteDashboard() {
           .select('*')
           .order('created_at', { ascending: false })
 
-        if (mediaData) {
-          setTrainingMedia(mediaData)
-        }
+        const mediaResult: TrainingMediaItem[] = mediaData || []
+        setTrainingMedia(mediaResult)
+
+        // Extrai todas as obras exclusivas disponíveis
+        const allWorksites = new Set([
+          ...currentWorkers.map(w => w.work_site),
+          ...formattedDocs.map(d => d.work_site),
+          ...mediaResult.map(m => m.work_site),
+          ...(subs || []).flatMap(s => s.worksites || [])
+        ])
+
+        const cleanWorksites = Array.from(allWorksites).filter(Boolean).sort()
+        setAvailableWorksites(cleanWorksites as string[])
+
       } catch (err) {
         console.error('Erro na consulta:', err)
       } finally {
@@ -374,6 +392,7 @@ export default function ClienteDashboard() {
     setSelectedWorkerForPassport(buildWorkerPassportData(workerId, workerName, company))
   }
 
+  // Lógica de Filtragem dos Cartões de Trabalhador
   const workerCardMap = new Map<string, WorkerCardItem>()
 
   documents.forEach((doc) => {
@@ -391,6 +410,7 @@ export default function ClienteDashboard() {
         name: doc.worker_name,
         cpf: doc.worker_cpf || workerObj?.cpf || 'Não informado',
         company_name: doc.company_name,
+        work_site: doc.work_site || workerObj?.work_site || '',
         status: realStatus,
         hasExpiringSoon: expiringSoon,
       })
@@ -398,6 +418,13 @@ export default function ClienteDashboard() {
   })
 
   let displayWorkerCards = Array.from(workerCardMap.values())
+
+  // Aplicar Filtro de Obra Global aos Trabalhadores
+  if (globalWorksite !== 'TODAS') {
+    displayWorkerCards = displayWorkerCards.filter(w => 
+      w.work_site?.toUpperCase() === globalWorksite.toUpperCase()
+    )
+  }
 
   if (selectedSubcontractor !== 'TODAS') {
     displayWorkerCards = displayWorkerCards.filter(
@@ -420,8 +447,11 @@ export default function ClienteDashboard() {
     )
   }
 
+  // Filtragem de Documentos (Aba Obras)
   const obraFilteredDocuments = documents.filter((doc) => {
     const isObra = doc.category.toUpperCase().includes('OBRA')
+    const matchesGlobalWorksite = globalWorksite === 'TODAS' || doc.work_site?.toUpperCase() === globalWorksite.toUpperCase()
+    
     const matchesSearch =
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.company_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -444,7 +474,13 @@ export default function ClienteDashboard() {
           docTitleUpper.includes('GERAIS') ||
           docTitleUpper.includes('DOCUMENTAÇ')))
 
-    return isObra && matchesSearch && matchesObraSub
+    return isObra && matchesGlobalWorksite && matchesSearch && matchesObraSub
+  })
+
+  // Filtragem de Mídias/Treinamentos
+  const filteredTrainingMedia = trainingMedia.filter((m) => {
+    if (globalWorksite === 'TODAS') return true
+    return m.work_site?.toUpperCase() === globalWorksite.toUpperCase()
   })
 
   return (
@@ -500,10 +536,33 @@ export default function ClienteDashboard() {
       </section>
 
       <section className="w-full bg-white flex-1 relative z-10">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 md:px-12 py-8 space-y-10">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 md:px-12 py-8">
           
+          {/* FILTRO GLOBAL DE OBRAS (DESTAQUE NA TELA) */}
+          <div className="bg-gray-50 border border-gray-200 p-4 rounded-2xl mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-5xl mx-auto shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-lg border border-gray-100">
+                📍
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Filtro de Visualização</p>
+                <h3 className="text-sm font-black text-gray-900 uppercase">Selecione a Obra / Unidade</h3>
+              </div>
+            </div>
+            <select
+              value={globalWorksite}
+              onChange={(e) => setGlobalWorksite(e.target.value)}
+              className="w-full sm:w-72 px-4 py-3 bg-white border border-gray-300 rounded-xl text-xs font-black uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-black shadow-sm cursor-pointer"
+            >
+              <option value="TODAS">🌍 TODAS AS OBRAS</option>
+              {availableWorksites.map(ws => (
+                <option key={ws} value={ws}>{ws}</option>
+              ))}
+            </select>
+          </div>
+
           {(activeCategory === 'SUBCONTRATADAS' || activeCategory === 'PASSAPORTE') && (
-            <>
+            <div className="space-y-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                   {subcontractorsList.map((sub) => (
@@ -591,9 +650,14 @@ export default function ClienteDashboard() {
                         <h3 className="font-black text-sm uppercase tracking-wide text-gray-900 leading-snug">
                           {worker.name}
                         </h3>
-                        <p className="text-[11px] text-gray-500 font-medium mt-1">
+                        <p className="text-[11px] text-gray-500 font-medium mt-1 mb-1">
                           CPF: {worker.cpf}
                         </p>
+                        {worker.work_site && (
+                          <p className="text-[9px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded inline-block uppercase">
+                            Obra: {worker.work_site}
+                          </p>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -614,7 +678,7 @@ export default function ClienteDashboard() {
                   ))}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {activeCategory === 'TREINAMENTOS' && (
@@ -624,24 +688,13 @@ export default function ClienteDashboard() {
                   TREINAMENTOS E CAMPANHAS
                 </h3>
 
-                {trainingMedia.filter((m) => m.section === 'TREINAMENTOS').length === 0 ? (
+                {filteredTrainingMedia.filter((m) => m.section === 'TREINAMENTOS').length === 0 ? (
                   <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-3xl space-y-2 max-w-xl mx-auto">
-                    <p className="text-xs font-bold text-gray-600 uppercase">Nenhum treinamento cadastrado ainda.</p>
-                    <p className="text-[11px] text-gray-400">
-                      Adicione fotos, vídeos MP4 ou links de YouTube através do painel administrativo.
-                    </p>
-                    {isQuattroUser && (
-                      <Link
-                        href="/admin/midia"
-                        className="inline-block mt-2 px-4 py-2 bg-[#4A4D50] hover:bg-black text-white text-[10px] font-bold uppercase rounded-xl transition-colors"
-                      >
-                        + Cadastrar Mídias Agora
-                      </Link>
-                    )}
+                    <p className="text-xs font-bold text-gray-600 uppercase">Nenhum treinamento cadastrado para esta obra.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {trainingMedia
+                    {filteredTrainingMedia
                       .filter((m) => m.section === 'TREINAMENTOS')
                       .map((item) => (
                         <div
@@ -691,16 +744,13 @@ export default function ClienteDashboard() {
                   INSTRUÇÃO / ORIENTAÇÃO DE EMERGÊNCIA
                 </h3>
 
-                {trainingMedia.filter((m) => m.section === 'EMERGENCIA').length === 0 ? (
+                {filteredTrainingMedia.filter((m) => m.section === 'EMERGENCIA').length === 0 ? (
                   <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-3xl space-y-2 max-w-xl mx-auto">
-                    <p className="text-xs font-bold text-gray-600 uppercase">Nenhum material de emergência cadastrado.</p>
-                    <p className="text-[11px] text-gray-400">
-                      Cadastre vídeos (DEA, Primeiros Socorros) e infográficos em <strong>/admin/midia</strong>.
-                    </p>
+                    <p className="text-xs font-bold text-gray-600 uppercase">Nenhum material de emergência para esta obra.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {trainingMedia
+                    {filteredTrainingMedia
                       .filter((m) => m.section === 'EMERGENCIA')
                       .map((item) => (
                         <div key={item.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-3">
@@ -753,12 +803,13 @@ export default function ClienteDashboard() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 max-w-7xl mx-auto px-2">
+              {/* BARRA DE SUB-CATEGORIAS EM LINHA ÚNICA ADAPTÁVEL */}
+              <div className="flex items-center justify-start sm:justify-center overflow-x-auto flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 max-w-full mx-auto px-2 pb-2 sm:pb-0 scrollbar-none">
                 {obraSubCategories.map((subCat) => (
                   <button
                     key={subCat}
                     onClick={() => setSelectedObraSubCategory(subCat)}
-                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-[11px] font-bold tracking-tight uppercase transition-all border whitespace-nowrap cursor-pointer shrink-0 ${
                       selectedObraSubCategory === subCat
                         ? 'bg-[#4A4D50] text-white border-[#4A4D50] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'

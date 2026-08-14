@@ -10,6 +10,7 @@ interface CompanyItem {
   id: string
   name: string
   logo_url?: string | null
+  worksites?: string[]
   created_at: string
 }
 
@@ -35,8 +36,8 @@ export default function AdminEmpresasPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Form de Empresa
-  const [companyForm, setCompanyForm] = useState({ name: '' })
+  // Form de Empresa (Agora com Obras)
+  const [companyForm, setCompanyForm] = useState({ name: '', worksites_str: '' })
 
   // Form de Criação de Usuário
   const [userForm, setUserForm] = useState({
@@ -45,7 +46,7 @@ export default function AdminEmpresasPage() {
     password: '',
     company_id: '',
     role: 'CLIENTE',
-    work_site: 'Amazon Fulfillment Center - SP02',
+    work_site: '',
   })
 
   // Modal de Edição de Usuário
@@ -124,15 +125,22 @@ export default function AdminEmpresasPage() {
         logoUrl = publicData.publicUrl
       }
 
+      // Converte a string separada por vírgula em Array
+      const worksitesArray = companyForm.worksites_str
+        .split(',')
+        .map(s => s.trim().toUpperCase())
+        .filter(Boolean)
+
       const { error } = await supabase.from('subcontractors').insert({
         name: companyForm.name.trim().toUpperCase(),
         logo_url: logoUrl,
+        worksites: worksitesArray,
       })
 
       if (error) throw error
 
-      setMessage({ type: 'success', text: `Empresa "${companyForm.name.toUpperCase()}" cadastrada!` })
-      setCompanyForm({ name: '' })
+      setMessage({ type: 'success', text: `Empresa "${companyForm.name.toUpperCase()}" cadastrada com suas obras!` })
+      setCompanyForm({ name: '', worksites_str: '' })
       setLogoFile(null)
       loadData()
     } catch (err: any) {
@@ -142,7 +150,7 @@ export default function AdminEmpresasPage() {
     }
   }
 
-  // Criar Usuário (executado via RPC direto no banco)
+  // Criar Usuário
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!userForm.email || !userForm.password || !userForm.full_name) return
@@ -157,7 +165,7 @@ export default function AdminEmpresasPage() {
         new_full_name: userForm.full_name.trim(),
         new_company_id: userForm.company_id || null,
         new_role: userForm.role,
-        new_work_site: userForm.role === 'ADMIN_QUATTRO' ? '' : userForm.work_site,
+        new_work_site: userForm.role === 'ADMIN_QUATTRO' ? '' : userForm.work_site.trim().toUpperCase(),
       })
 
       if (error) throw error
@@ -169,7 +177,7 @@ export default function AdminEmpresasPage() {
         password: '',
         company_id: '',
         role: 'CLIENTE',
-        work_site: 'Amazon Fulfillment Center - SP02',
+        work_site: '',
       })
 
       await loadData()
@@ -194,7 +202,7 @@ export default function AdminEmpresasPage() {
     })
   }
 
-  // Salvar Edição de Usuário (executado via RPC)
+  // Salvar Edição de Usuário
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editForm.full_name || !editForm.email || !editForm.userId) return
@@ -210,7 +218,7 @@ export default function AdminEmpresasPage() {
         new_full_name: editForm.full_name.trim(),
         new_company_id: editForm.company_id || null,
         new_role: editForm.role,
-        new_work_site: editForm.role === 'ADMIN_QUATTRO' ? '' : editForm.work_site,
+        new_work_site: editForm.role === 'ADMIN_QUATTRO' ? '' : editForm.work_site.trim().toUpperCase(),
       })
 
       if (error) throw error
@@ -241,7 +249,7 @@ export default function AdminEmpresasPage() {
     }
   }
 
-  // Excluir Usuário (executado via RPC)
+  // Excluir Usuário
   const handleDeleteUser = async (id: string, name: string) => {
     if (!confirm(`Deseja remover o acesso de "${name}"?`)) return
     setDeletingUserId(id)
@@ -286,7 +294,7 @@ export default function AdminEmpresasPage() {
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
             }`}
           >
-            🏢 Empresas & Clientes ({companies.length})
+            🏢 Empresas & Obras ({companies.length})
           </button>
           <button
             onClick={() => setActiveTab('USUARIOS')}
@@ -307,7 +315,7 @@ export default function AdminEmpresasPage() {
                 Cadastrar Empresa ou Cliente
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
                     Razão Social ou Nome Fantasia *
@@ -317,14 +325,27 @@ export default function AdminEmpresasPage() {
                     required
                     placeholder="Ex: AMAZON BRASIL / SERTTA ENGENHARIA"
                     value={companyForm.name}
-                    onChange={(e) => setCompanyForm({ name: e.target.value })}
+                    onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
                     className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                    Logotipo da Empresa (PNG / SVG sem fundo)
+                    Obras / Unidades Vinculadas
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: SP02, RJ01, Galpão A (Separe por vírgula)"
+                    value={companyForm.worksites_str}
+                    onChange={(e) => setCompanyForm({ ...companyForm, worksites_str: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                    Logotipo (PNG / SVG)
                   </label>
                   <input
                     type="file"
@@ -341,7 +362,7 @@ export default function AdminEmpresasPage() {
                   disabled={savingCompany}
                   className="px-6 py-2.5 bg-[#4A4D50] hover:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {savingCompany ? 'Cadastrando...' : '+ Cadastrar Empresa e Logo'}
+                  {savingCompany ? 'Cadastrando...' : '+ Cadastrar Empresa e Obras'}
                 </button>
               </div>
             </form>
@@ -363,22 +384,31 @@ export default function AdminEmpresasPage() {
                     <div key={company.id} className="p-5 flex items-center justify-between hover:bg-gray-50/80 transition-colors">
                       <div className="flex items-center gap-4">
                         {company.logo_url ? (
-                          <div className="relative w-16 h-10 bg-gray-50 rounded border p-1">
+                          <div className="relative w-16 h-10 bg-gray-50 rounded border p-1 shrink-0">
                             <Image src={company.logo_url} alt={company.name} fill className="object-contain" />
                           </div>
                         ) : (
-                          <div className="w-16 h-10 bg-gray-200 rounded flex items-center justify-center text-[10px] font-bold text-gray-500">
+                          <div className="w-16 h-10 bg-gray-200 rounded flex items-center justify-center text-[10px] font-bold text-gray-500 shrink-0">
                             SEM LOGO
                           </div>
                         )}
                         <div>
                           <p className="text-xs font-bold text-gray-900 uppercase">{company.name}</p>
+                          {company.worksites && company.worksites.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {company.worksites.map((ws, i) => (
+                                <span key={i} className="px-2 py-0.5 bg-gray-100 border border-gray-200 text-gray-600 rounded text-[9px] font-bold uppercase">
+                                  {ws}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       <button
                         onClick={() => handleDeleteCompany(company.id, company.name)}
-                        className="px-3 py-1.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-lg text-[10px] font-bold uppercase border border-red-200 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-lg text-[10px] font-bold uppercase border border-red-200 transition-colors cursor-pointer shrink-0"
                       >
                         Excluir
                       </button>
@@ -408,7 +438,7 @@ export default function AdminEmpresasPage() {
                     placeholder="Ex: Carlos Eduardo Silva"
                     value={userForm.full_name}
                     onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
                   />
                 </div>
 
@@ -447,7 +477,7 @@ export default function AdminEmpresasPage() {
                   <select
                     value={userForm.company_id}
                     onChange={(e) => setUserForm({ ...userForm, company_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white uppercase"
                   >
                     <option value="">Selecione a Empresa...</option>
                     {companies.map((c) => (
@@ -474,13 +504,14 @@ export default function AdminEmpresasPage() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                    Obra / Unidade
+                    Obra / Unidade Específica
                   </label>
                   <input
                     type="text"
+                    placeholder="Ex: SP02"
                     value={userForm.work_site}
                     onChange={(e) => setUserForm({ ...userForm, work_site: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
                   />
                 </div>
               </div>
@@ -526,7 +557,7 @@ export default function AdminEmpresasPage() {
                         </div>
                         <p className="text-xs text-gray-500 font-mono">{p.email}</p>
                         <p className="text-[10px] text-gray-400">
-                          Empresa: <strong className="text-gray-700">{p.company_name}</strong> | Obra: {p.work_site || 'N/A'}
+                          Empresa: <strong className="text-gray-700">{p.company_name}</strong> | Obra: {p.work_site || 'Todas'}
                         </p>
                       </div>
 
@@ -588,7 +619,7 @@ export default function AdminEmpresasPage() {
                     required
                     value={editForm.full_name}
                     onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
                   />
                 </div>
 
@@ -625,7 +656,7 @@ export default function AdminEmpresasPage() {
                   <select
                     value={editForm.company_id}
                     onChange={(e) => setEditForm({ ...editForm, company_id: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white uppercase"
                   >
                     <option value="">Quattro Construtora (Interna)</option>
                     {companies.map((c) => (
@@ -658,7 +689,7 @@ export default function AdminEmpresasPage() {
                     type="text"
                     value={editForm.work_site}
                     onChange={(e) => setEditForm({ ...editForm, work_site: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
                   />
                 </div>
               </div>

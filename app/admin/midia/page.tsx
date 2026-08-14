@@ -17,6 +17,7 @@ interface MediaItem {
   media_type: 'IMAGE' | 'VIDEO_FILE' | 'EMBED'
   url: string
   company_id?: string | null
+  work_site?: string | null
   created_at: string
 }
 
@@ -24,9 +25,8 @@ interface MediaItem {
 function formatEmbedUrl(urlStr: string): string {
   if (!urlStr) return ''
 
-  // YouTube
   if (urlStr.includes('youtube.com') || urlStr.includes('youtu.be')) {
-    if (urlStr.includes('youtube.com/embed/')) return urlStr // Já é embed válido
+    if (urlStr.includes('youtube.com/embed/')) return urlStr 
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|shorts\/)([^#\&\?]*).*/
     const match = urlStr.match(regExp)
     if (match && match[2] && match[2].length === 11) {
@@ -34,7 +34,6 @@ function formatEmbedUrl(urlStr: string): string {
     }
   }
 
-  // Vimeo
   if (urlStr.includes('vimeo.com')) {
     const regExp = /vimeo\.com\/(\d+)/
     const match = urlStr.match(regExp)
@@ -61,6 +60,7 @@ export default function AdminMidiaPage() {
     typeMode: 'FILE' as 'FILE' | 'LINK',
     embedUrl: '',
     company_id: '',
+    work_site: '',
   })
 
   const supabase = createClient()
@@ -134,12 +134,14 @@ export default function AdminMidiaPage() {
         section: formData.section,
         media_type: detectedType,
         url: finalUrl,
+        company_id: formData.company_id || null,
+        work_site: formData.work_site.trim().toUpperCase() || null,
       })
 
       if (error) throw error
 
       setMessage({ type: 'success', text: 'Mídia cadastrada e publicada no Portal!' })
-      setFormData({ title: '', section: 'TREINAMENTOS', typeMode: 'FILE', embedUrl: '', company_id: '' })
+      setFormData({ title: '', section: 'TREINAMENTOS', typeMode: 'FILE', embedUrl: '', company_id: '', work_site: '' })
       setFile(null)
       loadMedia()
     } catch (err: any) {
@@ -188,15 +190,15 @@ export default function AdminMidiaPage() {
             Adicionar Novo Material (Foto, Vídeo ou Link)
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                Título do Treinamento / Campanha *
+                Título da Mídia *
               </label>
               <input
                 type="text"
                 required
-                placeholder="Ex: Treinamento de Uso do DEA"
+                placeholder="Ex: Treinamento DEA"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
@@ -205,14 +207,14 @@ export default function AdminMidiaPage() {
 
             <div>
               <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                Cliente / Obra Vinculada
+                Cliente Vinculado
               </label>
               <select
                 value={formData.company_id}
                 onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white uppercase"
               >
-                <option value="">TODAS AS OBRAS</option>
+                <option value="">TODAS AS EMPRESAS</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -223,29 +225,42 @@ export default function AdminMidiaPage() {
 
             <div>
               <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                Seção de Exibição *
+                Obra / Unidade
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: SP02 (ou deixe vazio para Todas)"
+                value={formData.work_site}
+                onChange={(e) => setFormData({ ...formData, work_site: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-medium focus:outline-none focus:bg-white uppercase"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
+                Seção *
               </label>
               <select
                 value={formData.section}
                 onChange={(e) => setFormData({ ...formData, section: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white"
               >
-                <option value="TREINAMENTOS">TREINAMENTOS E CAMPANHAS (Galeria)</option>
-                <option value="EMERGENCIA">INSTRUÇÃO / ORIENTAÇÃO DE EMERGÊNCIA</option>
+                <option value="TREINAMENTOS">TREINAMENTOS</option>
+                <option value="EMERGENCIA">EMERGÊNCIA</option>
               </select>
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-gray-600 uppercase mb-1">
-                Origem da Mídia *
+                Origem *
               </label>
               <select
                 value={formData.typeMode}
                 onChange={(e) => setFormData({ ...formData, typeMode: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 bg-[#F9F9F9] border border-gray-300 rounded-xl text-xs font-bold focus:outline-none focus:bg-white"
               >
-                <option value="FILE">Upload de Arquivo (PNG, JPG, MP4, MPEG)</option>
-                <option value="LINK">Link Externo (YouTube / Vimeo)</option>
+                <option value="FILE">Upload (Arquivo)</option>
+                <option value="LINK">Link Externo</option>
               </select>
             </div>
           </div>
@@ -316,6 +331,11 @@ export default function AdminMidiaPage() {
                       <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded font-bold uppercase">
                         {item.media_type}
                       </span>
+                      {item.work_site && (
+                        <span className="bg-purple-50 text-purple-800 px-2 py-0.5 rounded font-bold uppercase">
+                          Obra: {item.work_site}
+                        </span>
+                      )}
                     </div>
                   </div>
 
